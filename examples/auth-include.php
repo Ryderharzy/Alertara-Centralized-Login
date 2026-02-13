@@ -349,10 +349,15 @@ function getRedirectUrl()
 /**
  * Handle logout action
  */
-if (request()->input('action') === 'logout') {
+function logout()
+{
     session()->forget('jwt_token');
-    auth('api')->logout();
-    return redirect(env('MAIN_DOMAIN', 'https://alertaraqc.com') . '/logout');
+    return redirect('https://login.alertaraqc.com');
+}
+
+// Auto logout if requested via query parameter
+if (request()->input('action') === 'logout') {
+    return logout();
 }
 
 ?>
