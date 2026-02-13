@@ -246,11 +246,23 @@
             })
             .then(response => response.json())
             .then(data => {
+                console.log('=== OTP VERIFICATION RESPONSE ===');
+                console.log('Success:', data.success);
+                console.log('Message:', data.message);
+                console.log('Token:', data.token ? data.token.substring(0, 50) + '...' : 'NO TOKEN');
+                console.log('Admin Data:', data.admin);
+                console.log('Redirect URL:', data.redirect_url);
+                console.log('Subdomain:', data.subdomain);
+                console.log('===================================');
+
                 if (data.success) {
                     // Store JWT token in localStorage
                     localStorage.setItem('jwt_token', data.token);
                     localStorage.setItem('admin_data', JSON.stringify(data.admin));
-                    
+
+                    console.log('✅ Token stored in localStorage');
+                    console.log('🔄 Redirecting to:', data.redirect_url);
+
                     // Show success message
                     Swal.fire({
                         icon: 'success',
@@ -259,13 +271,19 @@
                         confirmButtonColor: '#16a34a',
                         confirmButtonText: 'OK'
                     });
-                    
+
                     // Redirect to department-specific subdomain
                     setTimeout(() => {
+                        console.log('🚀 Executing redirect to:', data.redirect_url);
                         window.location.href = data.redirect_url;
                     }, 1500);
                 } else {
                     // Handle error
+                    console.error('❌ OTP VERIFICATION FAILED');
+                    console.error('Error Message:', data.message);
+                    console.error('Full Response:', data);
+                    console.error('===================================');
+
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
@@ -276,7 +294,7 @@
                     isSubmitting = false;
                     SUBMIT_BTN.disabled = false;
                     SUBMIT_BTN.innerHTML = 'Verify Code';
-                    
+
                     // Clear OTP inputs on error
                     OTP_INPUTS.forEach(input => {
                         input.value = '';
@@ -287,7 +305,12 @@
                 }
             })
             .catch(error => {
-                console.error('OTP verification error:', error);
+                console.error('❌ FETCH ERROR DURING OTP VERIFICATION');
+                console.error('Error:', error);
+                console.error('Error Message:', error.message);
+                console.error('Stack:', error.stack);
+                console.error('===================================');
+
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
