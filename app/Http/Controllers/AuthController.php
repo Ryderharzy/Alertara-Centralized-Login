@@ -355,7 +355,8 @@ class AuthController extends Controller
             ];
             
             $dashboardFile = $dashboardFiles[$user->department] ?? 'dashboard.php';
-            $redirectUrl = "https://{$subdomain}/{$dashboardFile}?token={$token}";
+            // Don't include token in URL - use secure cookie instead
+            $redirectUrl = "https://{$subdomain}/{$dashboardFile}";
         } else {
             // Unauthorized role
             return response()->json([
@@ -363,6 +364,20 @@ class AuthController extends Controller
                 'message' => 'Unauthorized role. Access denied.'
             ], 403);
         }
+
+        // Set secure HTTP-only cookie (not accessible to JavaScript)
+        // This cookie will be sent with all requests to subdomains
+        $cookie = cookie(
+            'jwt_token',                           // cookie name
+            $token,                                // cookie value
+            60,                                    // 60 minutes expiration
+            '/',                                   // path
+            '.alertaraqc.com',                     // domain (allows subdomains)
+            true,                                  // secure (HTTPS only)
+            true,                                  // httpOnly (no JavaScript access)
+            false,                                 // raw
+            'Strict'                               // sameSite
+        );
 
         return response()->json([
             'success' => true,
@@ -374,10 +389,9 @@ class AuthController extends Controller
                 'role' => $user->role,
                 'last_login' => $user->last_login
             ],
-            'token' => $token,
             'redirect_url' => $redirectUrl,
             'subdomain' => $subdomain
-        ]);
+        ])->cookie($cookie);
     }
 
     public function unlockAccount($token)
