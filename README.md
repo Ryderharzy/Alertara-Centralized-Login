@@ -26,12 +26,92 @@ User logs in at login.alertaraqc.com
             ↓
    JWT token generated
             ↓
-   Redirect to subdomain with token
+   System checks user DEPARTMENT
+            ↓
+   Routes to correct SUBDOMAIN
+            ↓
+   Redirect with token
             ↓
    Your dashboard validates token
             ↓
    User authenticated ✅
 ```
+
+### 🌐 Subdomain Routing
+
+The centralized login system **automatically redirects users** to their department's subdomain:
+
+```
+Department → Subdomain
+─────────────────────────────────────
+crime_data_department → crime-analytics.alertaraqc.com
+law_enforcement_department → law-enforcement.alertaraqc.com
+fire_and_rescue_department → fire.alertaraqc.com
+traffic_and_transport_department → traffic.alertaraqc.com
+emergency_response_department → emergency.alertaraqc.com
+community_policing_department → community.alertaraqc.com
+... and more
+```
+
+#### 📝 How the Redirection Code Works
+
+**File: `app/Http/Controllers/AuthController.php`**
+
+```php
+// Department to Subdomain Mapping
+$departmentSubdomains = [
+    'law_enforcement_department' => 'law-enforcement',
+    'traffic_and_transport_department' => 'traffic',
+    'fire_and_rescue_department' => 'fire',
+    'emergency_response_department' => 'emergency',
+    'community_policing_department' => 'community',
+    'crime_data_department' => 'crime-analytics',
+    'public_safety_department' => 'public-safety',
+    'health_and_safety_department' => 'health',
+    'disaster_preparedness_department' => 'disaster',
+    'emergency_communication_department' => 'comm',
+];
+
+// Get subdomain for user's department
+$subdomain = $departmentSubdomains[$user->department] ?? 'dashboard';
+
+// Get dashboard file for that department
+$dashboardFiles = [
+    'law_enforcement_department' => 'law-dashboard.php',
+    'traffic_and_transport_department' => 'traffic-dashboard.php',
+    'fire_and_rescue_department' => 'fire-dashboard.php',
+    'emergency_response_department' => 'emergency-dashboard.php',
+    'community_policing_department' => 'community-dashboard.php',
+    'crime_data_department' => 'dashboard.php',
+    'public_safety_department' => 'public-safety-dashboard.php',
+    'health_and_safety_department' => 'health-dashboard.php',
+    'disaster_preparedness_department' => 'disaster-dashboard.php',
+    'emergency_communication_department' => 'comm-dashboard.php',
+];
+
+$dashboardFile = $dashboardFiles[$user->department] ?? 'dashboard.php';
+
+// Build redirect URL
+$redirectUrl = "https://{$subdomain}.alertaraqc.com/{$dashboardFile}?token={$token}";
+
+// Return to user
+return response()->json([
+    'success' => true,
+    'redirect_url' => $redirectUrl,
+    'token' => $token,
+]);
+```
+
+> **⚠️ Need to change the redirection mapping?**
+>
+> **Contact Admin:** PM ME TO CHANGE THE REDIRECTION
+>
+> **What can be changed:**
+> - Department → Subdomain mapping
+> - Dashboard file names per department
+> - Any routing logic
+>
+> **Changes are made in:** `AuthController.php` (lines 318-358)
 
 ---
 
@@ -518,9 +598,71 @@ getTokenRefreshScript()
 
 ## 📞 Support
 
-For issues or questions:
+### General Questions
 - **Email:** admin@alertaraqc.com
-- **Documentation:** See `README.md`
+- **Documentation:** See `IMPLEMENTATION_GUIDE.md`
+
+### Special Requests
+
+#### 🔄 Need to Change Subdomain Redirection?
+
+If you need to change which subdomain a department redirects to:
+
+- **Contact:** PM ME TO CHANGE THE REDIRECTION
+- **Configuration File:** `AuthController.php` in centralized login (lines 318-358)
+- **What can be changed:**
+  - Department → Subdomain mapping
+  - Dashboard file names
+  - Redirect URLs
+  - Any department-based routing logic
+
+**Current Mapping:**
+```php
+$departmentSubdomains = [
+    'law_enforcement_department' => 'law-enforcement.alertaraqc.com',
+    'traffic_and_transport_department' => 'traffic.alertaraqc.com',
+    'fire_and_rescue_department' => 'fire.alertaraqc.com',
+    'emergency_response_department' => 'emergency.alertaraqc.com',
+    'community_policing_department' => 'community.alertaraqc.com',
+    'crime_data_department' => 'crime-analytics.alertaraqc.com',
+    'public_safety_department' => 'public-safety.alertaraqc.com',
+    'health_and_safety_department' => 'health-safety.alertaraqc.com',
+    'disaster_preparedness_department' => 'disaster.alertaraqc.com',
+    'emergency_communication_department' => 'emergency-comm.alertaraqc.com'
+];
+
+$dashboardFiles = [
+    'law_enforcement_department' => 'law-dashboard.php',
+    'traffic_and_transport_department' => 'traffic-dashboard.php',
+    'fire_and_rescue_department' => 'fire-dashboard.php',
+    'emergency_response_department' => 'emergency-dashboard.php',
+    'community_policing_department' => 'community-dashboard.php',
+    'crime_data_department' => 'dashboard.php',
+    'public_safety_department' => 'public-safety-dashboard.php',
+    'health_and_safety_department' => 'health-dashboard.php',
+    'disaster_preparedness_department' => 'disaster-dashboard.php',
+    'emergency_communication_department' => 'comm-dashboard.php'
+];
+```
+
+**To Request a Change:**
+1. Tell admin which department you want to change
+2. Provide the new subdomain name (or dashboard file)
+3. Admin will update `AuthController.php`
+4. Changes take effect immediately
+
+**Example Change Request:**
+```
+"Can you change crime_data_department to redirect to
+crime.alertaraqc.com instead of crime-analytics.alertaraqc.com?"
+```
+
+#### 🔐 Need JWT_SECRET or Credentials?
+- **Contact:** Admin
+- **What you'll receive:**
+  - JWT_SECRET (for .env)
+  - Database credentials (for .env)
+  - Centralized login URL (MAIN_DOMAIN)
 
 ---
 
