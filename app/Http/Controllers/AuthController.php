@@ -297,7 +297,7 @@ class AuthController extends Controller
 
         // OTP verified, get user data
         $user = CentralizedAdminUser::find($adminId);
-        
+
         if (!$user) {
             return response()->json([
                 'success' => false,
@@ -305,8 +305,8 @@ class AuthController extends Controller
             ], 404);
         }
 
-        // Generate JWT token
-        $token = auth()->login($user);
+        // Generate JWT token using JWTAuth
+        $token = \Tymon\JWTAuth\Facades\JWTAuth::fromUser($user);
 
         // Clean up OTP
         \DB::table('centralized_admin_otp')
