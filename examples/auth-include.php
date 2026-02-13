@@ -295,7 +295,7 @@ function getTokenRefreshScript()
         localStorage.setItem('user_data', JSON.stringify(userData));
     </script>";
 }
-
+ 
 /**
  * Get customizable redirect URL based on role and department
  * Override this function in your dashboard to customize redirect behavior
