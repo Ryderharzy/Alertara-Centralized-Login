@@ -26,11 +26,17 @@ if (!$jwtSecret) {
     abort(500, 'JWT_SECRET not configured in environment');
 }
 
+// Ensure session is started
+if (!session()->isStarted()) {
+    session()->start();
+}
+
 // Debug logging
 $debugLog = [];
 $debugLog[] = '=== JWT AUTHENTICATION DEBUG ===';
 $debugLog[] = 'Current URL: ' . request()->fullUrl();
 $debugLog[] = 'Current Time: ' . now()->format('Y-m-d H:i:s');
+$debugLog[] = 'Session started: YES';
 
 // Step 1: Get JWT token from multiple sources
 $token = null;
@@ -44,7 +50,10 @@ if (request()->query('token')) {
 
     // Store in session for subsequent requests
     session(['jwt_token' => $token]);
+    session()->save(); // Explicitly save the session
     $debugLog[] = '✓ Token stored in session';
+    $debugLog[] = 'Session ID: ' . session()->getId();
+    $debugLog[] = 'Session contents: ' . json_encode(session()->all());
 } else {
     // Try to get from session for subsequent requests
     $token = session('jwt_token');
@@ -345,6 +354,23 @@ function getRedirectUrl()
 
     // For now, stay on current page
     return request()->url();
+}
+
+/**
+ * Generate URL for authenticated pages with JWT token
+ * Use this when creating links to other authenticated pages
+ */
+function authUrl($routeName, $parameters = [])
+{
+    $url = route($routeName, $parameters);
+    $token = session('jwt_token');
+
+    if ($token) {
+        $separator = strpos($url, '?') !== false ? '&' : '?';
+        $url .= $separator . 'token=' . urlencode($token);
+    }
+
+    return $url;
 }
 
 /**
