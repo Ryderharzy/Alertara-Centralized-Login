@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\CentralizedAdminUser;
 use Illuminate\Support\Str;
 
@@ -69,7 +71,7 @@ class AuthController extends Controller
                     $unlockToken = Str::random(60);
                     $user->update([
                         'unlock_token' => $unlockToken,
-                        'unlock_token_expiry' => now()->addHour()
+                        'unlock_token_expiry' => now('Asia/Manila')->addHour()
                     ]);
 
                     // Send unlock email
@@ -84,7 +86,7 @@ class AuthController extends Controller
                         });
                     } catch (\Exception $e) {
                         // Log email error but don't fail the request
-                        \Log::error('Failed to send account locked email: ' . $e->getMessage());
+                        Log::error('Failed to send account locked email: ' . $e->getMessage());
                     }
                 }
             }
@@ -98,7 +100,7 @@ class AuthController extends Controller
         }
 
         // Check if account is locked
-        if ($user->attempt_count >= 3 && $user->unlock_token_expiry && now()->lt($user->unlock_token_expiry)) {
+        if ($user->attempt_count >= 3 && $user->unlock_token_expiry && now('Asia/Manila')->lt($user->unlock_token_expiry)) {
             if ($request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
                 return response()->json(['message' => 'Account is temporarily locked. Please check your email for unlock instructions.'], 403);
             }
@@ -112,8 +114,8 @@ class AuthController extends Controller
             'attempt_count' => 0,
             'unlock_token' => null,
             'unlock_token_expiry' => null,
-            'last_login' => now(),
-            'last_activity' => now(),
+            'last_login' => now('Asia/Manila'),
+            'last_activity' => now('Asia/Manila'),
             'ip_address' => $request->ip()
         ]);
 
@@ -123,20 +125,20 @@ class AuthController extends Controller
         // Store OTP in database
         try {
             // Delete old OTPs for this user
-            \DB::table('centralized_admin_otp')
+            DB::table('centralized_admin_otp')
                 ->where('admin_id', $user->id)
                 ->delete();
 
             // Insert new OTP
-            $otpInserted = \DB::table('centralized_admin_otp')->insert([
+            $otpInserted = DB::table('centralized_admin_otp')->insert([
                 'admin_id' => $user->id,
                 'otp_code' => $otpCode,
-                'created_at' => now(),
-                'expires_at' => now()->addMinutes(5)
+                'created_at' => now('Asia/Manila'),
+                'expires_at' => now('Asia/Manila')->addMinutes(5)
             ]);
 
             if (!$otpInserted) {
-                \Log::error('Failed to insert OTP for user: ' . $user->id);
+                Log::error('Failed to insert OTP for user: ' . $user->id);
                 if ($request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
                     return response()->json(['message' => 'Failed to generate OTP. Please try again.'], 500);
                 }
@@ -153,9 +155,9 @@ class AuthController extends Controller
                     $message->to($user->email)
                         ->subject('Your OTP Verification Code');
                 });
-                \Log::info('OTP sent successfully to: ' . $user->email);
+                Log::info('OTP sent successfully to: ' . $user->email);
             } catch (\Exception $e) {
-                \Log::error('Failed to send OTP email: ' . $e->getMessage());
+                Log::error('Failed to send OTP email: ' . $e->getMessage());
                 // Continue anyway - user can still enter OTP manually
             }
 
@@ -168,7 +170,7 @@ class AuthController extends Controller
 
             return redirect()->route('otp.verify');
         } catch (\Exception $e) {
-            \Log::error('Error during OTP generation: ' . $e->getMessage());
+            Log::error('Error during OTP generation: ' . $e->getMessage());
             if ($request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
                 return response()->json(['message' => 'An error occurred. Please try again.'], 500);
             }
@@ -198,7 +200,7 @@ class AuthController extends Controller
             }
 
             // Clean up old OTPs
-            \DB::table('centralized_admin_otp')
+            DB::table('centralized_admin_otp')
                 ->where('admin_id', $adminId)
                 ->delete();
 
@@ -206,15 +208,15 @@ class AuthController extends Controller
             $otpCode = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
             // Store new OTP
-            $otpInserted = \DB::table('centralized_admin_otp')->insert([
+            $otpInserted = DB::table('centralized_admin_otp')->insert([
                 'admin_id' => $adminId,
                 'otp_code' => $otpCode,
-                'created_at' => now(),
-                'expires_at' => now()->addMinutes(5)
+                'created_at' => now('Asia/Manila'),
+                'expires_at' => now('Asia/Manila')->addMinutes(5)
             ]);
 
             if (!$otpInserted) {
-                \Log::error('Failed to insert new OTP for user: ' . $adminId);
+                Log::error('Failed to insert new OTP for user: ' . $adminId);
                 return response()->json([
                     'success' => false,
                     'error' => 'Failed to generate new OTP. Please try again.'
@@ -231,9 +233,9 @@ class AuthController extends Controller
                     $message->to($user->email)
                         ->subject('Your New OTP Verification Code');
                 });
-                \Log::info('New OTP sent successfully to: ' . $user->email);
+                Log::info('New OTP sent successfully to: ' . $user->email);
             } catch (\Exception $e) {
-                \Log::error('Failed to send new OTP email: ' . $e->getMessage());
+                Log::error('Failed to send new OTP email: ' . $e->getMessage());
                 // Continue anyway - user can still enter OTP manually
             }
 
@@ -242,7 +244,7 @@ class AuthController extends Controller
                 'message' => 'New OTP sent successfully'
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error during OTP resend: ' . $e->getMessage());
+            Log::error('Error during OTP resend: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'An error occurred. Please try again.'
@@ -283,9 +285,9 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $otpRecord = \DB::table('centralized_admin_otp')
+        $otpRecord = DB::table('centralized_admin_otp')
             ->where('admin_id', $adminId)
-            ->where('expires_at', '>', now())
+            ->where('expires_at', '>', now('Asia/Manila'))
             ->first();
 
         if (!$otpRecord || $request->otp !== $otpRecord->otp_code) {
@@ -309,7 +311,7 @@ class AuthController extends Controller
         $token = \Tymon\JWTAuth\Facades\JWTAuth::fromUser($user);
 
         // Clean up OTP
-        \DB::table('centralized_admin_otp')
+        DB::table('centralized_admin_otp')
             ->where('admin_id', $adminId)
             ->delete();
 
@@ -391,7 +393,7 @@ class AuthController extends Controller
     public function unlockAccount($token)
     {
         $user = CentralizedAdminUser::where('unlock_token', $token)
-            ->where('unlock_token_expiry', '>', now())
+            ->where('unlock_token_expiry', '>', now('Asia/Manila'))
             ->first();
 
         if (!$user) {

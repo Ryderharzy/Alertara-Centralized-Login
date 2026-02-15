@@ -18,6 +18,8 @@
  * - isAdmin()             // Boolean check
  */
 
+use Illuminate\Support\Facades\Log;
+
 // Get JWT secret and main domain from environment
 $jwtSecret = env('JWT_SECRET');
 $mainDomain = env('MAIN_DOMAIN', 'https://alertaraqc.com');
@@ -118,7 +120,7 @@ if ($token) {
         $debugLog[] = '✗ JWT token validation FAILED!';
         $debugLog[] = 'Error: ' . $e->getMessage();
 
-        \Log::error('JWT Validation Error: ' . $e->getMessage(), [
+        Log::error('JWT Validation Error: ' . $e->getMessage(), [
             'token' => substr($token, 0, 50) . '...',
             'error' => $e->getMessage()
         ]);
@@ -129,7 +131,7 @@ if ($token) {
 
 // Log debug information
 foreach ($debugLog as $log) {
-    \Log::debug($log);
+    Log::debug($log);
 }
 
 // Step 4: Redirect if not authenticated
@@ -140,7 +142,7 @@ if (!$user) {
     $debugLog[] = '===================================';
 
     foreach ($debugLog as $log) {
-        \Log::debug($log);
+        Log::debug($log);
     }
 
     return redirect($mainDomain);
@@ -148,7 +150,7 @@ if (!$user) {
 
 // Step 5: Check token expiration
 if ($user['exp'] && $user['exp'] < time()) {
-    \Log::warning('JWT token expired', [
+    Log::warning('JWT token expired', [
         'email' => $user['email'],
         'expired_at' => date('Y-m-d H:i:s', $user['exp'])
     ]);
@@ -163,7 +165,7 @@ $debugLog[] = '✅ AUTHENTICATION SUCCESSFUL';
 $debugLog[] = '===================================';
 
 foreach ($debugLog as $log) {
-    \Log::debug($log);
+    Log::debug($log);
 }
 
 // Step 7: Make user data globally available
