@@ -6,10 +6,14 @@
 
 ## 📋 Quick Start Guide
 
-| Framework | Tutorial |
-|-----------|----------|
-| **🟡 Pure PHP** | [See Simple Example Below](#simple-example-pure-php) |
-| **🔴 Laravel** | [See Simple Example Below](#simple-example-laravel) |
+### Step 1: Setup Admin User (On Centralized Login Server)
+Before anything else, add your admin credentials to the centralized login database.
+
+### Step 2: Configure Your Dashboard .env
+Add the necessary environment variables to your dashboard.
+
+### Step 3: Integrate with Your Dashboard
+Use Pure PHP or Laravel examples below.
 
 ---
 
@@ -25,6 +29,61 @@ https://login.alertaraqc.com/api/auth/validate?token=YOUR_JWT_TOKEN
 - User role
 - Department name
 - Everything you need
+
+---
+
+## 🚀 Setup Instructions
+
+### Step 1: Add Admin User to Centralized Database
+
+The centralized login server has a database called `LGU` with a table `centralized_admin_user`. You need to insert your admin credentials there.
+
+**Connect to the centralized login server database and run:**
+
+```sql
+INSERT INTO centralized_admin_user
+(email, password_hash, department, role)
+VALUES
+('your-email@alertaraqc.com', SHA2('your-password', 256), 'crime_data_department', 'admin');
+```
+
+**Important:**
+- Replace `your-email@alertaraqc.com` with your actual email
+- Replace `your-password` with your password (it will be hashed with SHA2)
+- Replace `crime_data_department` with your department
+- Set `role` to either `'admin'` or `'super_admin'`
+
+### Step 2: Configure Your Dashboard .env File
+
+Your dashboard needs a `.env` file in the root directory. Create it and add these values:
+
+#### For Local Development (.env)
+
+```env
+# Application
+APP_NAME="MyDashboard"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+
+# Centralized Login
+CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
+```
+
+#### For Production (.env.production)
+
+```env
+# Application
+APP_NAME="MyDashboard"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://crime-analytics.alertaraqc.com
+
+# Centralized Login
+CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
+```
+
+**That's all you need!** The dashboard doesn't need JWT_SECRET or database credentials. It only calls the API to validate tokens.
 
 ---
 
@@ -425,30 +484,8 @@ A: No! Only the centralized login server needs JWT_SECRET. Your dashboard just v
 **Q: Do I need database for my dashboard?**
 A: No! The centralized login server has the database. Your dashboard just calls the API.
 
-
-## ⚙️ Essential .env Configuration
-
-You only need these values. Nothing more!
-
-### For Laravel Dashboard
-
-```env
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://crime-analytics.alertaraqc.com
-```
-
-### For Pure PHP Dashboard
-
-No .env file needed! Just hardcode the login URL in your code:
-
-```php
-// In your PHP files
-$loginUrl = 'https://login.alertaraqc.com';
-$apiEndpoint = 'https://login.alertaraqc.com/api/auth/validate';
-```
-
-That's all you need! The token is passed automatically in the URL when user logs in.
+**Q: What goes in .env on my dashboard?**
+A: Just the application name, environment (local/production), and the centralized login URL. See "Setup Instructions" above for examples.
 
 ---
 
@@ -511,12 +548,14 @@ console.log(userData.role);
 
 ## 🎯 Next Steps
 
-1. ✅ Copy the Pure PHP or Laravel code above to your dashboard
-2. ✅ Test it by logging in from https://login.alertaraqc.com
-3. ✅ Verify user data displays correctly
-4. ✅ Deploy to production
+1. ✅ Add your admin user to centralized database (see Setup Instructions)
+2. ✅ Create `.env` file in your dashboard with essential values (see Setup Instructions)
+3. ✅ Copy the Pure PHP or Laravel code to your dashboard
+4. ✅ Test by logging in from https://login.alertaraqc.com
+5. ✅ Verify user data displays correctly
+6. ✅ Deploy to production
 
-That's it!
+Done!
 
 ---
 
