@@ -330,20 +330,26 @@ class AuthController extends Controller
         ];
 
         $subdomain = $departmentSubdomains[$user->department] ?? 'default.alertaraqc.com';
-        
+
         // Role-based access control
         if ($user->role === 'super_admin') {
-            // Super admin gets special subdomain
+            // Super admin must have all_departments
+            if ($user->department !== 'all_departments') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid configuration. Super admin must have all_departments.'
+                ], 403);
+            }
             $redirectUrl = "https://super-admin.alertaraqc.com/dashboard?token={$token}";
         } else if ($user->role === 'admin') {
             // Admin gets department-specific subdomain
             // Option 1: Same filename for all departments
             // $redirectUrl = "https://{$subdomain}/dashboard.php?token={$token}";
-            
+
             // Option 2: Different filename per department
             $dashboardFiles = [
                 'law_enforcement_department' => 'law-dashboard.php',
-                'traffic_and_transport_department' => 'traffic-dashboard.php', 
+                'traffic_and_transport_department' => 'traffic-dashboard.php',
                 'fire_and_rescue_department' => 'fire-dashboard.php',
                 'emergency_response_department' => 'emergency-dashboard.php',
                 'community_policing_department' => 'community-dashboard.php',
@@ -353,7 +359,7 @@ class AuthController extends Controller
                 'disaster_preparedness_department' => 'disaster-dashboard.php',
                 'emergency_communication_department' => 'comm-dashboard.php'
             ];
-            
+
             $dashboardFile = $dashboardFiles[$user->department] ?? 'dashboard.php';
             // Include token in URL for initial redirect (HTTPS - secure)
             // auth-include.php will store it in session for subsequent requests
