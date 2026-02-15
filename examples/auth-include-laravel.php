@@ -1,4 +1,6 @@
 <?php
+
+use Illuminate\Support\Facades\Log;
 /**
  * JWT Authentication Include File for Laravel
  *
@@ -17,8 +19,6 @@
  * - isSuperAdmin()        // Boolean check
  * - isAdmin()             // Boolean check
  */
-
-use Illuminate\Support\Facades\Log;
 
 // Get JWT secret and main domain from environment
 $jwtSecret = env('JWT_SECRET');
@@ -120,7 +120,7 @@ if ($token) {
         $debugLog[] = '✗ JWT token validation FAILED!';
         $debugLog[] = 'Error: ' . $e->getMessage();
 
-        Log::error('JWT Validation Error: ' . $e->getMessage(), [
+        \Log::error('JWT Validation Error: ' . $e->getMessage(), [
             'token' => substr($token, 0, 50) . '...',
             'error' => $e->getMessage()
         ]);
@@ -131,26 +131,28 @@ if ($token) {
 
 // Log debug information
 foreach ($debugLog as $log) {
-    Log::debug($log);
+    \Log::debug($log);
 }
 
 // Step 4: Redirect if not authenticated
 if (!$user) {
     $debugLog[] = '';
     $debugLog[] = '❌ AUTHENTICATION FAILED - REDIRECTING';
-    $debugLog[] = 'Redirect URL: ' . $mainDomain;
+
+    $redirectUrl = app()->environment() === 'production' ? $mainDomain : '/login';
+    $debugLog[] = 'Redirect URL: ' . $redirectUrl;
     $debugLog[] = '===================================';
 
     foreach ($debugLog as $log) {
-        Log::debug($log);
+        \Log::debug($log);
     }
 
-    return redirect($mainDomain);
+    return redirect($redirectUrl);
 }
 
-// Step 5: Check token expiration
-if ($user['exp'] && $user['exp'] < time()) {
-    Log::warning('JWT token expired', [
+// Step 5: Check token expiration (only in production)
+if (app()->environment() === 'production' && $user['exp'] && $user['exp'] < time()) {
+    \Log::warning('JWT token expired', [
         'email' => $user['email'],
         'expired_at' => date('Y-m-d H:i:s', $user['exp'])
     ]);
@@ -165,11 +167,14 @@ $debugLog[] = '✅ AUTHENTICATION SUCCESSFUL';
 $debugLog[] = '===================================';
 
 foreach ($debugLog as $log) {
-    Log::debug($log);
+    \Log::debug($log);
 }
 
 // Step 7: Make user data globally available
 $GLOBALS['authenticated_user'] = $user;
+
+// Also make available to views via view()->share
+view()->share('currentUser', $user);
 
 // Department name mapping
 $departmentNames = [
@@ -237,9 +242,16 @@ function getDepartmentName()
         'health_and_safety_department' => 'Health & Safety Department',
         'disaster_preparedness_department' => 'Disaster Preparedness Department',
         'emergency_communication_department' => 'Emergency Communication Department',
+        'all_departments' => 'All Departments',
     ];
 
     $dept = getUserDepartment();
+
+    // For super admin with no specific department
+    if (isSuperAdmin() && empty($dept)) {
+        return 'All Departments';
+    }
+
     return $names[$dept] ?? ucfirst(str_replace('_', ' ', $dept));
 }
 
@@ -275,29 +287,41 @@ function getTokenRefreshScript()
     $user = getCurrentUser();
     $exp = $user['exp'] ?? 0;
     $mainDomain = env('MAIN_DOMAIN', 'https://alertaraqc.com');
+    $appEnv = app()->environment();
+
+    // In local development, redirect to /login; in production, redirect to main domain
+    $redirectUrl = $appEnv === 'production' ? $mainDomain : '/login';
 
     return "
     <script>
         // Token expiration check
         const tokenExpiresAt = " . ($exp * 1000) . ";
+        const appEnv = '{$appEnv}';
+        const redirectUrl = '{$redirectUrl}';
 
         const checkTokenExpiration = () => {
             if (Date.now() >= tokenExpiresAt) {
-                alert('Your session has expired. Please login again.');
-                window.location.href = '{$mainDomain}';
+                // Only check token expiration if using JWT auth (production)
+                if (appEnv === 'production') {
+                    alert('Your session has expired. Please login again.');
+                    window.location.href = redirectUrl;
+                }
             }
         };
 
-        // Check every minute
-        setInterval(checkTokenExpiration, 60000);
-        checkTokenExpiration();
+        // Only check token expiration in production
+        if (appEnv === 'production') {
+            // Check every minute
+            setInterval(checkTokenExpiration, 60000);
+            checkTokenExpiration();
+        }
 
         // Store user data in localStorage
         const userData = " . json_encode($user) . ";
         localStorage.setItem('user_data', JSON.stringify(userData));
     </script>";
 }
- 
+
 /**
  * Get customizable redirect URL based on role and department
  * Override this function in your dashboard to customize redirect behavior
