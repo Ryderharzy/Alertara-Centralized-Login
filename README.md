@@ -4,109 +4,65 @@
 
 ---
 
-## 📋 Quick Navigation
+## 📋 Quick Start Guide
 
-| Framework | Quick Start |
-|-----------|------------|
-| **🔴 Laravel** | [Laravel Integration](#-laravel-integration) |
-| **🟡 Pure PHP** | [Pure PHP Integration](#-pure-php-integration) |
-| **⚡ API Endpoint** | [Using API Endpoint](#-using-api-endpoint-recommended) |
+| Framework | Tutorial |
+|-----------|----------|
+| **🟡 Pure PHP** | [See Simple Example Below](#simple-example-pure-php) |
+| **🔴 Laravel** | [See Simple Example Below](#simple-example-laravel) |
 
 ---
 
-## ⚡ Using API Endpoint (Recommended)
+## ⚡ The API Endpoint (All You Need)
 
-> **This is the MODERN and RECOMMENDED approach!** Use the JWT validation API endpoint instead of including files.
-
-### What is the API Endpoint?
-
-The centralized login system provides an **HTTP API endpoint** that validates JWT tokens and returns user data:
-
+**One Simple API Endpoint:**
 ```
-GET https://login.alertaraqc.com/api/auth/validate?token=YOUR_JWT_TOKEN
+https://login.alertaraqc.com/api/auth/validate?token=YOUR_JWT_TOKEN
 ```
 
-**Benefits:**
-- ✅ No files to copy or maintain
-- ✅ Works with any framework (Laravel, Pure PHP, Node.js, etc.)
-- ✅ Decoupled and scalable
-- ✅ Token hidden from URL immediately
-- ✅ Works cross-domain
+**That's it!** No files to copy. Just call this endpoint and you get:
+- User email
+- User role
+- Department name
+- Everything you need
 
-### API Endpoint Documentation
+---
 
-**Endpoint:** `GET /api/auth/validate`
+## 🟡 Simple Example: Pure PHP
 
-**Accepts token from:**
-1. Query parameter: `?token=eyJ0...`
-2. Authorization header: `Authorization: Bearer eyJ0...`
-3. Custom header: `X-Access-Token: eyJ0...`
-4. Session: `$_SESSION['jwt_token']`
-
-**Response:**
-```json
-{
-  "authenticated": true,
-  "user": {
-    "id": 1,
-    "email": "admin@example.com",
-    "department": "law_enforcement_department",
-    "department_name": "Law Enforcement Department",
-    "role": "super_admin",
-    "exp": 1705123456
-  }
-}
-```
-
-**Error Response:**
-```json
-{
-  "authenticated": false,
-  "message": "Invalid token"
-}
-```
-
-### Quick Start: Pure PHP Example
-
-**Create: `dashboard.php`**
+**File: `dashboard.php`**
 
 ```php
 <?php
-// 1️⃣ Capture token from URL
-$token = $_GET['token'] ?? $_SESSION['jwt_token'] ?? '';
+// 1. Get token from URL or session
+$token = $_GET['token'] ?? $_SESSION['jwt_token'] ?? null;
 
-if ($token) {
-    $_SESSION['jwt_token'] = $token;
-}
-
-// 2️⃣ Check if user has token
-if (!isset($_SESSION['jwt_token'])) {
+if (!$token) {
     header('Location: https://login.alertaraqc.com');
     exit;
 }
 
-// 3️⃣ Validate token via API endpoint
+// Store token in session
+$_SESSION['jwt_token'] = $token;
+
+// 2. Call the API endpoint to validate
 $ch = curl_init('https://login.alertaraqc.com/api/auth/validate');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_TIMEOUT, 5);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Authorization: Bearer ' . $_SESSION['jwt_token'],
-    'Accept: application/json'
+    'Authorization: Bearer ' . $token,
 ]);
 
 $response = json_decode(curl_exec($ch), true);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-// 4️⃣ Check if authenticated
-if ($httpCode !== 200 || !$response['authenticated']) {
-    session_destroy();
+// 3. Check if authenticated
+if (!$response['authenticated']) {
     header('Location: https://login.alertaraqc.com');
     exit;
 }
 
-// 5️⃣ Extract user data
-$currentUser = $response['user'];
+// 4. Get user data
+$user = $response['user'];
 ?>
 
 <!DOCTYPE html>
@@ -122,119 +78,75 @@ $currentUser = $response['user'];
         }
     </script>
 
-    <!-- Display user info in header -->
     <header>
-        <h1>Dashboard</h1>
-        <div class="user-info">
-            <span>Email: <?= htmlspecialchars($currentUser['email']) ?></span>
-            <span>Role: <?= htmlspecialchars($currentUser['role']) ?></span>
-            <span>Department: <?= htmlspecialchars($currentUser['department_name']) ?></span>
-            <button onclick="logout()">Logout</button>
-        </div>
+        <h1>Welcome <?= $user['email'] ?></h1>
+        <p>Role: <?= $user['role'] ?></p>
+        <p>Department: <?= $user['department_name'] ?></p>
+        <a href="https://login.alertaraqc.com/logout">Logout</a>
     </header>
 
-    <!-- Your content here -->
     <main>
-        <h2>Welcome to Dashboard</h2>
+        <!-- Your dashboard content here -->
     </main>
-
-    <script>
-        function logout() {
-            window.location.href = 'https://login.alertaraqc.com/logout';
-        }
-    </script>
 </body>
 </html>
 ```
 
-### Quick Start: Fetch API Example
+---
 
-**Using JavaScript to call the API:**
+## 🔴 Simple Example: Laravel
 
-```javascript
-// Get token from URL or session
-const token = new URLSearchParams(window.location.search).get('token')
-    || sessionStorage.getItem('jwt_token');
+**File: `routes/web.php`**
 
-// Call API endpoint
-fetch('https://login.alertaraqc.com/api/auth/validate?token=' + token)
-    .then(res => res.json())
-    .then(data => {
-        if (data.authenticated) {
-            console.log('User:', data.user);
-            console.log('Email:', data.user.email);
-            console.log('Role:', data.user.role);
-            console.log('Department:', data.user.department_name);
+```php
+Route::get('/dashboard', function () {
+    $token = request('token') ?? session('jwt_token');
 
-            // Update header with user info
-            document.querySelector('header').innerHTML = `
-                Welcome ${data.user.email} | ${data.user.role} | ${data.user.department_name}
-            `;
-        } else {
-            window.location.href = 'https://login.alertaraqc.com';
-        }
-    });
+    if (!$token) {
+        return redirect('https://login.alertaraqc.com');
+    }
+
+    session(['jwt_token' => $token]);
+
+    // Call API to validate
+    $response = Http::withToken($token)
+        ->get('https://login.alertaraqc.com/api/auth/validate');
+
+    if (!$response['authenticated']) {
+        return redirect('https://login.alertaraqc.com');
+    }
+
+    return view('dashboard', ['user' => $response['user']]);
+});
 ```
 
-### Environment Variables for API Endpoint
+**File: `resources/views/dashboard.blade.php`**
 
-**For Pure PHP (.env):**
+```blade
+@extends('layouts.app')
 
-```env
-# Centralized Login API
-CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
-API_VALIDATE_ENDPOINT=https://login.alertaraqc.com/api/auth/validate
+@section('content')
+<div class="container">
+    <header>
+        <h1>Welcome {{ $user['email'] }}</h1>
+        <p>Role: {{ $user['role'] }}</p>
+        <p>Department: {{ $user['department_name'] }}</p>
+        <a href="https://login.alertaraqc.com/logout">Logout</a>
+    </header>
 
-# Session
-SESSION_DOMAIN=.alertaraqc.com
-SESSION_LIFETIME=120
-SESSION_SECURE=true
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
+    <main>
+        <!-- Your dashboard content here -->
+    </main>
+</div>
+
+<script>
+    // Hide token from URL
+    if (window.location.search.includes('token=')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+</script>
+@endsection
 ```
-
-**For Laravel (.env):**
-
-```env
-# Database (LGU)
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=LGU
-DB_USERNAME=(PROVIDED BY ADMIN)
-DB_PASSWORD=(PROVIDED BY ADMIN)
-
-# JWT
-JWT_SECRET=(PROVIDED BY ADMIN)
-JWT_ALGO=HS256
-JWT_TTL=60
-
-# Centralized Login
-MAIN_DOMAIN=https://alertaraqc.com
-CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
-API_VALIDATE_ENDPOINT=https://login.alertaraqc.com/api/auth/validate
-
-# Session Configuration
-SESSION_DRIVER=file
-SESSION_LIFETIME=120
-SESSION_DOMAIN=.alertaraqc.com
-SESSION_PATH=/
-SESSION_SECURE=true
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
-```
-
-### Comparison: Include File vs API Endpoint
-
-| Aspect | Include File | API Endpoint |
-|--------|--------------|--------------|
-| **Setup** | Copy file to project | Just call HTTP endpoint |
-| **Maintenance** | Update file when needed | No maintenance needed |
-| **Framework** | Works anywhere | Works anywhere |
-| **Performance** | Fast (local) | HTTP call (~50-100ms) |
-| **Scalability** | Limited | Highly scalable |
-| **Security** | Good | Excellent |
-| **Recommended** | Legacy approach | ✅ Modern approach |
 
 ---
 
@@ -340,224 +252,6 @@ return response()->json([
 
 ---
 
-## 🔴 Laravel Integration
-
-### Step 1️⃣: Install JWT Package
-
-```bash
-composer require tymon/jwt-auth:^2.0
-php artisan vendor:publish --provider="Tymon\JWTAuth\Providers\LaravelServiceProvider"
-```
-
-### Step 2️⃣: Configure .env
-
-```env
-# Database (Already exists in LGU)
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=LGU
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
-
-# JWT Configuration
-JWT_SECRET=(PROVIDED BY ADMIN)
-JWT_ALGO=HS256
-JWT_TTL=60
-
-# Centralized Login Domain
-MAIN_DOMAIN=https://alertaraqc.com
-```
-
-### Step 3️⃣: Copy Auth Files
-
-Copy these files from centralized login to your dashboard:
-
-```bash
-# Copy to your project
-cp examples/auth-include.php your-dashboard/app/Includes/
-
-# Or for Pure PHP
-cp examples/auth-include-pure-php.php your-dashboard/public/
-```
-
-### Step 4️⃣: Use in Your Dashboard
-
-**File: `resources/views/dashboard.blade.php`**
-
-```php
-<?php
-// Add at TOP of file (before any HTML output)
-require_once app_path('Includes/auth-include.php');
-?>
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard</title>
-</head>
-<body>
-    <!-- Now user is authenticated and available -->
-
-    <nav>
-        <h1>Welcome, <?php echo htmlspecialchars(getUserEmail()); ?></h1>
-        <a href="?action=logout" class="btn btn-logout">Logout</a>
-    </nav>
-
-    <div class="content">
-        <p><strong>Department:</strong> <?php echo getDepartmentName(); ?></p>
-        <p><strong>Role:</strong> <?php echo getUserRole(); ?></p>
-
-        <?php if (isAdmin()): ?>
-            <div class="admin-panel">
-                Admin Panel Content Here
-            </div>
-        <?php endif; ?>
-    </div>
-
-    <!-- Add token refresh script (optional) -->
-    <?php echo getTokenRefreshScript(); ?>
-</body>
-</html>
-```
-
-### Step 5️⃣: Protect All Pages
-
-Do **the same for all pages** in your dashboard:
-
-```
-public/
-├── dashboard/
-│   ├── index.php          ← Add auth-include.php at top
-│   ├── reports.php        ← Add auth-include.php at top
-│   ├── analytics.php      ← Add auth-include.php at top
-│   └── settings.php       ← Add auth-include.php at top
-```
-
----
-
-## 🟡 Pure PHP Integration
-
-### Step 1️⃣: Install Composer Packages
-
-```bash
-composer require firebase/php-jwt
-composer require symfony/dotenv
-```
-
-### Step 2️⃣: Setup .env File
-
-**File: `.env` (in project root)**
-
-```env
-JWT_SECRET=(PROVIDED BY ADMIN)
-MAIN_DOMAIN=https://alertaraqc.com
-```
-
-### Step 3️⃣: Copy Auth File
-
-```bash
-cp examples/auth-include-pure-php.php your-dashboard/public/
-```
-
-### Step 4️⃣: Use in Your Pages
-
-**File: `public/dashboard.php`**
-
-```php
-<?php
-// Load autoloader
-require_once __DIR__ . '/../vendor/autoload.php';
-
-// Add authentication (handles everything)
-require_once __DIR__ . '/auth-include-pure-php.php';
-
-// User is now authenticated!
-?>
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard</title>
-</head>
-<body>
-    <nav>
-        <h1>Welcome, <?php echo htmlspecialchars(getUserEmail()); ?></h1>
-        <a href="?action=logout" class="btn btn-logout">Logout</a>
-    </nav>
-
-    <div class="content">
-        <p><strong>Department:</strong> <?php echo getDepartmentName(); ?></p>
-        <p><strong>Role:</strong> <?php echo getUserRole(); ?></p>
-
-        <?php if (isAdmin()): ?>
-            <div class="admin-panel">
-                Admin Panel Content
-            </div>
-        <?php endif; ?>
-    </div>
-
-    <!-- Token refresh script -->
-    <?php echo getTokenRefreshScript(); ?>
-</body>
-</html>
-```
-
-### Step 5️⃣: Protect All Pages
-
-Add the same at the top of **every protected page**:
-
-```php
-<?php
-require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/auth-include-pure-php.php';
-// Page is now protected ✅
-?>
-```
-
----
-
-## 📚 Available Helper Functions
-
-```php
-// Get user information
-getCurrentUser()           // Returns full user array
-getUserEmail()            // Get user email
-getUserRole()             // Get role ('admin' or 'super_admin')
-getUserDepartment()       // Get department code
-getDepartmentName()       // Get department name (formatted)
-
-// Check permissions
-isAdmin()                 // Boolean check
-isSuperAdmin()            // Boolean check
-
-// Logout
-getLogoutUrl()           // Get logout URL
-logout()                 // Execute logout (for Pure PHP)
-
-// Token management
-getTokenRefreshScript()  // Get JavaScript for token refresh
-```
-
-### Usage Examples
-
-```php
-<!-- Display user email -->
-<?php echo getUserEmail(); ?>
-
-<!-- Check if admin -->
-<?php if (isAdmin()): ?>
-    <div>Admin Controls</div>
-<?php endif; ?>
-
-<!-- Show department -->
-<p>Department: <?php echo getDepartmentName(); ?></p>
-
-<!-- Logout link -->
-<a href="?action=logout">Logout</a>
-```
-
----
 
 ## 🗄️ Database Info
 
@@ -657,7 +351,7 @@ MAIN_DOMAIN=https://alertaraqc.com
 
 ### Issue: "Call to undefined function"
 
-**Solution:** Make sure you included auth file at TOP of page (before any HTML)
+**Solution:** Make sure you're calling the API endpoint correctly. Check the response from `/api/auth/validate` contains the required `user` object.
 
 ### Issue: Token displays in URL - Is this secure?
 
@@ -724,14 +418,6 @@ Contact your administrator and request:
 - [ ] Database credentials (for .env)
 - [ ] Centralized login URL (for MAIN_DOMAIN)
 
-### Files You Need
-
-Ask admin to provide:
-1. `auth-include.php` (for Laravel)
-2. `auth-include-pure-php.php` (for Pure PHP)
-3. Centralized login credentials
-
----
 
 ## 📋 Environment Variables Reference
 
@@ -1121,60 +807,70 @@ echo ".env" >> .gitignore
 
 ---
 
-## 📚 Full API Reference
+## 📚 API Response Reference
 
-### User Functions
+### Response Format
 
-```php
-getCurrentUser()
-// Returns: ['id' => 1, 'email' => 'user@..', 'department' => '...', ...]
+When you call the API endpoint, you get this response:
 
-getUserEmail()
-// Returns: 'user@example.com'
-
-getUserRole()
-// Returns: 'admin' or 'super_admin'
-
-getUserDepartment()
-// Returns: 'crime_data_department'
-
-getDepartmentName()
-// Returns: 'Crime Data Analytics Department'
-
-getUserId()
-// Returns: User ID
+```json
+{
+  "authenticated": true,
+  "user": {
+    "id": 1,
+    "email": "admin@alertaraqc.com",
+    "role": "admin",
+    "department": "crime_data_department",
+    "department_name": "Crime Data Analytics Department",
+    "exp": 1645000000
+  }
+}
 ```
 
-### Permission Functions
+### User Fields
 
+| Field | Type | Example | Description |
+|-------|------|---------|-------------|
+| `id` | integer | `1` | User ID in database |
+| `email` | string | `admin@alertaraqc.com` | User email address |
+| `role` | string | `admin` or `super_admin` | User role |
+| `department` | string | `crime_data_department` | Department code |
+| `department_name` | string | `Crime Data Analytics Department` | Human-readable department name |
+| `exp` | integer | `1645000000` | Token expiration (Unix timestamp) |
+
+### Using User Data in Your Code
+
+**Pure PHP:**
 ```php
-isAdmin()
-// Returns: true/false
-
-isSuperAdmin()
-// Returns: true/false
+$user = $response['user'];
+echo $user['email'];              // 'admin@alertaraqc.com'
+echo $user['role'];               // 'admin'
+echo $user['department_name'];    // 'Crime Data Analytics Department'
 ```
 
-### Utility Functions
+**Laravel Blade:**
+```blade
+{{ $user['email'] }}
+{{ $user['role'] }}
+{{ $user['department_name'] }}
+```
 
-```php
-getLogoutUrl()
-// Returns: 'https://login.alertaraqc.com'
-
-getTokenRefreshScript()
-// Returns: JavaScript code for token refresh
+**JavaScript:**
+```javascript
+const userData = <?= json_encode($user) ?>;
+console.log(userData.email);
+console.log(userData.role);
 ```
 
 ---
 
 ## 🎯 Next Steps
 
-1. ✅ Request credentials from admin
-2. ✅ Update .env with JWT_SECRET and database info
-3. ✅ Copy auth-include file
-4. ✅ Add to your dashboard pages
-5. ✅ Test login flow
-6. ✅ Deploy to production
+1. ✅ Request JWT_SECRET from admin
+2. ✅ Update .env with JWT_SECRET
+3. ✅ Use the API endpoint examples above (Pure PHP or Laravel)
+4. ✅ Test your dashboard login flow
+5. ✅ Deploy to production
 
 ---
 
