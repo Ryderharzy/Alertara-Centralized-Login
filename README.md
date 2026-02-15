@@ -102,6 +102,9 @@ SESSION_SAME_SITE=lax
 # ============================================
 # CENTRALIZED LOGIN API (REQUIRED)
 # ============================================
+# Note: NO JWT_SECRET or AUTH_API_TOKEN needed here!
+# Those are only for the centralized login server (login.alertaraqc.com)
+# Your dashboard calls the API with the user's token from the URL
 CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
 AUTH_API_ENDPOINT=https://login.alertaraqc.com/api/auth/validate
 MAIN_DOMAIN=http://localhost:8000 # ⚠️ LOCAL: http://localhost:8000 | PRODUCTION: https://alertaraqc.com
@@ -135,9 +138,11 @@ VITE_APP_NAME="${APP_NAME}"
 
 **Key Points:**
 - ⚠️ Lines with `⚠️` show what changes between LOCAL and PRODUCTION
+- **DO NOT add JWT_SECRET or AUTH_API_TOKEN to your dashboard .env** - those are only for the centralized login server
 - The centralized login URL stays the same in both environments
 - Database and credentials are for YOUR dashboard (optional if you don't have a database)
 - Only the dashboard database is optional; centralized login database is managed by the centralized server
+- Your dashboard receives the user's JWT token via URL after login, then passes it to the API for validation
 
 ---
 
