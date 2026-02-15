@@ -410,18 +410,25 @@ class AuthController extends Controller
         return redirect('/')->with('success', 'Your account has been unlocked successfully. You can now login.');
     }
 
-    public function logout()
+    public function logout(Request $request)
     {
         Auth::logout();
-        session()->invalidate();
-        session()->regenerateToken();
 
-        // Clear all session/CSRF cookies across all subdomains
-        // This prevents 419 errors on next login
-        $response = redirect('/');
-        $response->cookie('XSRF-TOKEN', '', -1, '/', '.alertaraqc.com', true, true, false, 'lax');
-        $response->cookie('laravel_session', '', -1, '/', '.alertaraqc.com', true, true, false, 'lax');
-        $response->cookie('session', '', -1, '/', '.alertaraqc.com', true, true, false, 'lax');
+        // Regenerate CSRF token BEFORE invalidating session
+        $request->session()->regenerateToken();
+        $request->session()->invalidate();
+
+        // Explicitly delete the session cookie to clear it from browser
+        $response = redirect('https://login.alertaraqc.com');
+
+        // Clear BOTH the local and parent domain cookies
+        $sessionCookieName = config('session.cookie');
+
+        // Clear local domain cookie
+        $response->cookie($sessionCookieName, '', now()->subDays(1), '/', null, false, true);
+
+        // Clear parent domain (.alertaraqc.com) cookie
+        $response->cookie($sessionCookieName, '', now()->subDays(1), '/', '.alertaraqc.com', false, true);
 
         return $response;
     }
