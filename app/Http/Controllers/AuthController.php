@@ -413,22 +413,30 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         Auth::logout();
-
-        // Regenerate CSRF token BEFORE invalidating session
-        $request->session()->regenerateToken();
         $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
-        // Explicitly delete the session cookie to clear it from browser
-        $response = redirect('https://login.alertaraqc.com');
+        // Redirect to login page
+        $response = redirect('/login');
 
-        // Clear BOTH the local and parent domain cookies
+        // Get session configuration
         $sessionCookieName = config('session.cookie');
+        $sessionDomain = config('session.domain');
 
-        // Clear local domain cookie
-        $response->cookie($sessionCookieName, '', now()->subDays(1), '/', null, false, true);
+        // Clear session cookie from multiple domains to handle both local and production
+        // Use -1 to set expiration to past (guarantees deletion)
+        $response->cookie($sessionCookieName, '', -1, '/', null, false, true);
+        $response->cookie($sessionCookieName, '', -1, '/', 'localhost', false, true);
+        $response->cookie($sessionCookieName, '', -1, '/', '.alertaraqc.com', false, true);
 
-        // Clear parent domain (.alertaraqc.com) cookie
-        $response->cookie($sessionCookieName, '', now()->subDays(1), '/', '.alertaraqc.com', false, true);
+        if ($sessionDomain) {
+            $response->cookie($sessionCookieName, '', -1, '/', $sessionDomain, false, true);
+        }
+
+        // Also clear XSRF/CSRF token
+        $response->cookie('XSRF-TOKEN', '', -1, '/', null, false, true);
+        $response->cookie('XSRF-TOKEN', '', -1, '/', 'localhost', false, true);
+        $response->cookie('XSRF-TOKEN', '', -1, '/', '.alertaraqc.com', false, true);
 
         return $response;
     }

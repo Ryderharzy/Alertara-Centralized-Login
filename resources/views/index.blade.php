@@ -109,34 +109,45 @@
 
         // Clear old session/CSRF tokens on page load
         document.addEventListener('DOMContentLoaded', function() {
-            // Clear localStorage of old JWT and session data
-            localStorage.removeItem('jwt_token');
-            localStorage.removeItem('admin_data');
-            localStorage.removeItem('otp_timer_start');
-            localStorage.removeItem('session');
+            // Clear ALL localStorage and sessionStorage
+            localStorage.clear();
             sessionStorage.clear();
 
-            // Clear old session/CSRF cookies from all domains
-            // These expire dates remove cookies from browser
+            // Clear old session/CSRF cookies from all possible domains and paths
             const clearCookie = (name) => {
-                document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.alertaraqc.com; secure; samesite=lax;';
-                document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=login.alertaraqc.com; secure; samesite=lax;';
-                document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                const cookiesToDelete = [
+                    // Production domains
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.alertaraqc.com;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=login.alertaraqc.com;',
+                    // Local domains
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=localhost;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=127.0.0.1;',
+                    // Current domain without domain specification
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; Secure; SameSite=Lax;',
+                ];
+
+                cookiesToDelete.forEach(cookie => {
+                    document.cookie = cookie;
+                });
             };
 
-            clearCookie('XSRF-TOKEN');
-            clearCookie('laravel_session');
-            clearCookie('session');
-            clearCookie('remember_me');
+            // Clear all known session/auth related cookies
+            ['XSRF-TOKEN', 'laravel_session', 'session', 'remember_me', 'jwt_token', 'auth_token'].forEach(name => {
+                clearCookie(name);
+            });
 
             const loginForm = document.getElementById('loginForm');
             const submitBtn = document.getElementById('submitBtn');
 
-            loginForm.addEventListener('submit', function(e) {
-                // Disable the button to prevent double submission
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Signing In...';
-            });
+            if (loginForm) {
+                loginForm.addEventListener('submit', function(e) {
+                    // Disable the button to prevent double submission
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Signing In...';
+                });
+            }
         });
     </script>
 </body>
