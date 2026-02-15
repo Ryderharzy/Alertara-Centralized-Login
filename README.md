@@ -55,35 +55,89 @@ VALUES
 
 ### Step 2: Configure Your Dashboard .env File
 
-Your dashboard needs a `.env` file in the root directory. Create it and add these values:
+Create a `.env` file in your dashboard root directory. Use the same filename for both local and production - just change the values based on your environment.
 
-#### For Local Development (.env)
-
-```env
-# Application
-APP_NAME="MyDashboard"
-APP_ENV=local
-APP_DEBUG=true
-APP_URL=http://localhost:8000
-
-# Centralized Login
-CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
-```
-
-#### For Production (.env.production)
+**Important:** Use the sections below to know which values to set for LOCAL vs PRODUCTION.
 
 ```env
-# Application
-APP_NAME="MyDashboard"
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://crime-analytics.alertaraqc.com
+# ============================================
+# APPLICATION SETTINGS
+# ============================================
+APP_NAME="CrimeAnalyticsDashboard"
+APP_KEY=base64:YOUR_KEY_HERE
+APP_DEBUG=true                    # ⚠️ LOCAL: true | PRODUCTION: false
+APP_ENV=local                     # ⚠️ LOCAL: local | PRODUCTION: production
+APP_URL=http://localhost:8000     # ⚠️ LOCAL: http://localhost:8000 | PRODUCTION: https://crime-analytics.alertaraqc.com
 
-# Centralized Login
+# ============================================
+# LOGGING
+# ============================================
+LOG_CHANNEL=stack
+LOG_DEPRECATIONS_CHANNEL=null
+LOG_LEVEL=debug
+
+# ============================================
+# DATABASE (YOUR DASHBOARD DB - OPTIONAL)
+# ============================================
+DB_CONNECTION=mysql
+DB_HOST=localhost                 # ⚠️ LOCAL: localhost | PRODUCTION: your-prod-server.com
+DB_PORT=3306
+DB_DATABASE=your_dashboard_db     # Replace with your actual database name
+DB_USERNAME=root                  # ⚠️ LOCAL: root | PRODUCTION: production_user
+DB_PASSWORD=                       # ⚠️ LOCAL: (empty) | PRODUCTION: your_password
+
+# ============================================
+# CACHE & QUEUE
+# ============================================
+CACHE_DRIVER=file
+QUEUE_CONNECTION=sync
+SESSION_DRIVER=file
+SESSION_LIFETIME=120
+SESSION_DOMAIN=localhost          # ⚠️ LOCAL: localhost | PRODUCTION: .alertaraqc.com
+SESSION_PATH=/
+SESSION_SECURE=false              # ⚠️ LOCAL: false | PRODUCTION: true
+SESSION_HTTP_ONLY=true
+SESSION_SAME_SITE=lax
+
+# ============================================
+# CENTRALIZED LOGIN API (REQUIRED)
+# ============================================
 CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
+AUTH_API_ENDPOINT=https://login.alertaraqc.com/api/auth/validate
+MAIN_DOMAIN=http://localhost:8000 # ⚠️ LOCAL: http://localhost:8000 | PRODUCTION: https://alertaraqc.com
+
+# ============================================
+# MAIL (OPTIONAL - For notifications)
+# ============================================
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=465
+MAIL_ENCRYPTION=ssl
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+MAIL_FROM_ADDRESS=your-email@gmail.com
+MAIL_FROM_NAME="Crime Analytics Dashboard"
+
+# ============================================
+# REDIS & MEMCACHED (OPTIONAL)
+# ============================================
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+
+MEMCACHED_HOST=127.0.0.1
+
+# ============================================
+# VITE (Frontend Assets)
+# ============================================
+VITE_APP_NAME="${APP_NAME}"
 ```
 
-**That's all you need!** The dashboard doesn't need JWT_SECRET or database credentials. It only calls the API to validate tokens.
+**Key Points:**
+- ⚠️ Lines with `⚠️` show what changes between LOCAL and PRODUCTION
+- The centralized login URL stays the same in both environments
+- Database and credentials are for YOUR dashboard (optional if you don't have a database)
+- Only the dashboard database is optional; centralized login database is managed by the centralized server
 
 ---
 
@@ -623,17 +677,23 @@ crime.alertaraqc.com instead of crime-analytics.alertaraqc.com?"
 ---
 
 **Last Updated:** 2026-02-15
-**Version:** 3.0.0 (Simplified API Endpoint Approach)
+**Version:** 3.1.0 (Realistic .env Configuration)
 **Status:** ✅ Production Ready
 
 ---
 
 ## 📝 Changelog
 
+### Version 3.1.0 (2026-02-15) - Realistic .env Configuration!
+- 📝 Added realistic .env examples matching production setup
+- ⚠️ Clear LOCAL vs PRODUCTION value references with markers
+- 🔄 Single .env file approach (same filename, different values per environment)
+- 📋 Added all common Laravel variables (mail, cache, queue, etc.)
+- 💡 Added explanatory comments for each section
+
 ### Version 3.0.0 (2026-02-15) - Simplified!
 - 🎯 Removed all auth-include file references
 - 📝 Step-by-step examples for Pure PHP and Laravel
-- ⚙️ Simplified .env configuration (only essential values)
 - ❓ Updated FAQ to clarify dashboard vs centralized login setup
 - 🚀 Made documentation easy to understand (not confusing)
 
