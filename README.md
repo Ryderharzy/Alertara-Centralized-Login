@@ -28,13 +28,15 @@ https://login.alertaraqc.com/api/auth/validate?token=YOUR_JWT_TOKEN
 
 ---
 
-## 🟡 Simple Example: Pure PHP
+## 🟡 Pure PHP - Step by Step
 
-**File: `dashboard.php`**
+### Step 1: Create `dashboard.php`
 
 ```php
 <?php
-// 1. Get token from URL or session
+session_start();
+
+// Step 1: Get JWT token from URL or session
 $token = $_GET['token'] ?? $_SESSION['jwt_token'] ?? null;
 
 if (!$token) {
@@ -42,10 +44,10 @@ if (!$token) {
     exit;
 }
 
-// Store token in session
+// Store in session for next page visit
 $_SESSION['jwt_token'] = $token;
 
-// 2. Call the API endpoint to validate
+// Step 2: Validate token via API
 $ch = curl_init('https://login.alertaraqc.com/api/auth/validate');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -55,13 +57,13 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, [
 $response = json_decode(curl_exec($ch), true);
 curl_close($ch);
 
-// 3. Check if authenticated
+// Step 3: Check if validation passed
 if (!$response['authenticated']) {
     header('Location: https://login.alertaraqc.com');
     exit;
 }
 
-// 4. Get user data
+// Step 4: Get user data from response
 $user = $response['user'];
 ?>
 
@@ -78,75 +80,79 @@ $user = $response['user'];
         }
     </script>
 
-    <header>
-        <h1>Welcome <?= $user['email'] ?></h1>
-        <p>Role: <?= $user['role'] ?></p>
-        <p>Department: <?= $user['department_name'] ?></p>
-        <a href="https://login.alertaraqc.com/logout">Logout</a>
-    </header>
-
-    <main>
-        <!-- Your dashboard content here -->
-    </main>
+    <h1>Welcome <?= $user['email'] ?></h1>
+    <p>Role: <strong><?= $user['role'] ?></strong></p>
+    <p>Department: <strong><?= $user['department_name'] ?></strong></p>
+    <a href="https://login.alertaraqc.com/logout">Logout</a>
 </body>
 </html>
 ```
 
+### Step 2: That's it!
+
+Your dashboard now validates tokens automatically when users arrive from the login system.
+
 ---
 
-## 🔴 Simple Example: Laravel
+## 🔴 Laravel - Step by Step
 
-**File: `routes/web.php`**
+### Step 1: Create a Route in `routes/web.php`
 
 ```php
+use Illuminate\Support\Facades\Http;
+
 Route::get('/dashboard', function () {
+    // Get token from URL or session
     $token = request('token') ?? session('jwt_token');
 
     if (!$token) {
         return redirect('https://login.alertaraqc.com');
     }
 
+    // Save token in session
     session(['jwt_token' => $token]);
 
-    // Call API to validate
+    // Call API to validate token
     $response = Http::withToken($token)
         ->get('https://login.alertaraqc.com/api/auth/validate');
 
+    // If not authenticated, redirect to login
     if (!$response['authenticated']) {
         return redirect('https://login.alertaraqc.com');
     }
 
+    // Pass user data to view
     return view('dashboard', ['user' => $response['user']]);
 });
 ```
 
-**File: `resources/views/dashboard.blade.php`**
+### Step 2: Create a View in `resources/views/dashboard.blade.php`
 
 ```blade
-@extends('layouts.app')
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+    <!-- Hide token from URL -->
+    <script>
+        if (window.location.search.includes('token=')) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    </script>
 
-@section('content')
-<div class="container">
-    <header>
-        <h1>Welcome {{ $user['email'] }}</h1>
-        <p>Role: {{ $user['role'] }}</p>
-        <p>Department: {{ $user['department_name'] }}</p>
-        <a href="https://login.alertaraqc.com/logout">Logout</a>
-    </header>
-
-    <main>
-        <!-- Your dashboard content here -->
-    </main>
-</div>
-
-<script>
-    // Hide token from URL
-    if (window.location.search.includes('token=')) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-</script>
-@endsection
+    <h1>Welcome {{ $user['email'] }}</h1>
+    <p>Role: <strong>{{ $user['role'] }}</strong></p>
+    <p>Department: <strong>{{ $user['department_name'] }}</strong></p>
+    <a href="https://login.alertaraqc.com/logout">Logout</a>
+</body>
+</html>
 ```
+
+### Step 3: That's it!
+
+Your Laravel dashboard now validates tokens automatically.
 
 ---
 
@@ -411,399 +417,38 @@ So don't worry - **all pages can display tokens at the top, it's completely safe
 
 ## 📞 Getting Help
 
-### Need JWT_SECRET or API Keys?
+### Common Questions
 
-Contact your administrator and request:
-- [ ] JWT_SECRET (for .env)
-- [ ] Database credentials (for .env)
-- [ ] Centralized login URL (for MAIN_DOMAIN)
+**Q: Do I need to set up JWT_SECRET on my dashboard?**
+A: No! Only the centralized login server needs JWT_SECRET. Your dashboard just validates tokens via the API endpoint.
+
+**Q: Do I need database for my dashboard?**
+A: No! The centralized login server has the database. Your dashboard just calls the API.
 
 
-## 📋 Environment Variables Reference
+## ⚙️ Essential .env Configuration
 
-### Laravel (.env) - Complete Configuration
+You only need these values. Nothing more!
+
+### For Laravel Dashboard
 
 ```env
-# ============================================
-# Application
-# ============================================
-APP_NAME="AlertaraQC"
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://login.alertaraqc.com
-
-# ============================================
-# Database (LGU)
-# ============================================
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=LGU
-DB_USERNAME=(PROVIDED BY ADMIN)
-DB_PASSWORD=(PROVIDED BY ADMIN)
-
-# ============================================
-# JWT Authentication
-# ============================================
-JWT_SECRET=(PROVIDED BY ADMIN - Keep this SAFE!)
-JWT_ALGO=HS256
-JWT_TTL=60
-
-# ============================================
-# Centralized Login URLs
-# ============================================
-MAIN_DOMAIN=https://alertaraqc.com
-CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
-API_VALIDATE_ENDPOINT=https://login.alertaraqc.com/api/auth/validate
-
-# ============================================
-# Session Configuration (IMPORTANT!)
-# ============================================
-SESSION_DRIVER=file
-SESSION_LIFETIME=120
-SESSION_DOMAIN=.alertaraqc.com
-SESSION_PATH=/
-SESSION_SECURE=true
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
-
-# ============================================
-# Email Configuration
-# ============================================
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.mailtrap.io
-MAIL_PORT=465
-MAIL_USERNAME=(PROVIDED BY ADMIN)
-MAIL_PASSWORD=(PROVIDED BY ADMIN)
-MAIL_FROM_ADDRESS=admin@alertaraqc.com
-MAIL_FROM_NAME="AlertaraQC Admin"
+APP_URL=https://crime-analytics.alertaraqc.com
 ```
 
-### Pure PHP (.env) - Minimal Configuration
+### For Pure PHP Dashboard
 
-```env
-# ============================================
-# JWT
-# ============================================
-JWT_SECRET=(PROVIDED BY ADMIN - Keep this SAFE!)
+No .env file needed! Just hardcode the login URL in your code:
 
-# ============================================
-# Centralized Login
-# ============================================
-MAIN_DOMAIN=https://alertaraqc.com
-CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
-API_VALIDATE_ENDPOINT=https://login.alertaraqc.com/api/auth/validate
-
-# ============================================
-# Session Configuration
-# ============================================
-SESSION_DOMAIN=.alertaraqc.com
-SESSION_LIFETIME=120
-SESSION_SECURE=true
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
+```php
+// In your PHP files
+$loginUrl = 'https://login.alertaraqc.com';
+$apiEndpoint = 'https://login.alertaraqc.com/api/auth/validate';
 ```
 
-### Department Subdomain (.env for Dashboard Servers)
-
-**For each department subdomain dashboard (e.g., `crime-analytics.alertaraqc.com`):**
-
-```env
-# ============================================
-# Centralized Login URLs
-# ============================================
-CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
-API_VALIDATE_ENDPOINT=https://login.alertaraqc.com/api/auth/validate
-MAIN_DOMAIN=https://alertaraqc.com
-
-# ============================================
-# Session Configuration
-# ============================================
-SESSION_DOMAIN=.alertaraqc.com
-SESSION_LIFETIME=120
-SESSION_SECURE=true
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
-
-# ============================================
-# Optional: Database for YOUR dashboard
-# ============================================
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=your_dashboard_db
-DB_USERNAME=(YOUR CREDENTIALS)
-DB_PASSWORD=(YOUR CREDENTIALS)
-```
-
----
-
-## 🌍 Local Development vs Production .env
-
-### Local Development .env
-
-**Use this for localhost development:**
-
-```env
-# ============================================
-# Application (LOCAL)
-# ============================================
-APP_NAME="AlertaraQC"
-APP_ENV=local
-APP_DEBUG=true
-APP_URL=http://localhost:8000
-
-# ============================================
-# Database (LOCAL - Usually localhost)
-# ============================================
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=LGU
-DB_USERNAME=root
-DB_PASSWORD=
-
-# ============================================
-# JWT Authentication
-# ============================================
-JWT_SECRET=(PROVIDED BY ADMIN)
-JWT_ALGO=HS256
-JWT_TTL=60
-
-# ============================================
-# Centralized Login (IMPORTANT - Use production URLs even in local!)
-# ============================================
-MAIN_DOMAIN=https://alertaraqc.com
-CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
-API_VALIDATE_ENDPOINT=https://login.alertaraqc.com/api/auth/validate
-
-# ============================================
-# Session Configuration (LOCAL - LESS STRICT)
-# ============================================
-SESSION_DRIVER=file
-SESSION_LIFETIME=120
-SESSION_DOMAIN=localhost
-SESSION_PATH=/
-SESSION_SECURE=false        # ⚠️ FALSE for local HTTP
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
-
-# ============================================
-# Mail (LOCAL - Use Mailtrap or similar)
-# ============================================
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.mailtrap.io
-MAIL_PORT=465
-MAIL_USERNAME=(TEST ACCOUNT)
-MAIL_PASSWORD=(TEST ACCOUNT)
-MAIL_FROM_ADDRESS=test@alertaraqc.com
-MAIL_FROM_NAME="AlertaraQC Test"
-```
-
-### Production .env
-
-**Use this for live deployment:**
-
-```env
-# ============================================
-# Application (PRODUCTION)
-# ============================================
-APP_NAME="AlertaraQC"
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://login.alertaraqc.com
-
-# ============================================
-# Database (PRODUCTION - Usually remote server)
-# ============================================
-DB_CONNECTION=mysql
-DB_HOST=your-db-server.com
-DB_PORT=3306
-DB_DATABASE=LGU
-DB_USERNAME=(PROVIDED BY ADMIN - SECURE!)
-DB_PASSWORD=(PROVIDED BY ADMIN - SECURE!)
-
-# ============================================
-# JWT Authentication
-# ============================================
-JWT_SECRET=(PROVIDED BY ADMIN - KEEP SAFE!)
-JWT_ALGO=HS256
-JWT_TTL=60
-
-# ============================================
-# Centralized Login (Production URLs)
-# ============================================
-MAIN_DOMAIN=https://alertaraqc.com
-CENTRALIZED_LOGIN_URL=https://login.alertaraqc.com
-API_VALIDATE_ENDPOINT=https://login.alertaraqc.com/api/auth/validate
-
-# ============================================
-# Session Configuration (PRODUCTION - STRICT!)
-# ============================================
-SESSION_DRIVER=file
-SESSION_LIFETIME=120
-SESSION_DOMAIN=.alertaraqc.com      # Dot prefix for all subdomains
-SESSION_PATH=/
-SESSION_SECURE=true                 # ✅ TRUE for HTTPS only
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
-
-# ============================================
-# Mail (PRODUCTION - Real SMTP)
-# ============================================
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.gmail.com            # Or your email provider
-MAIL_PORT=465
-MAIL_USERNAME=(YOUR ADMIN EMAIL)
-MAIL_PASSWORD=(YOUR APP PASSWORD)
-MAIL_FROM_ADDRESS=admin@alertaraqc.com
-MAIL_FROM_NAME="AlertaraQC Admin"
-```
-
-### Key Differences Between Local and Production
-
-| Setting | Local | Production | Why? |
-|---------|-------|-----------|------|
-| `APP_ENV` | `local` | `production` | Controls error reporting and logging |
-| `APP_DEBUG` | `true` | `false` | Don't expose errors in production |
-| `APP_URL` | `http://localhost:8000` | `https://login.alertaraqc.com` | Used for redirect URLs |
-| `SESSION_DOMAIN` | `localhost` | `.alertaraqc.com` | Local doesn't need subdomain sharing |
-| `SESSION_SECURE` | `false` | `true` | HTTP in local, HTTPS in production |
-| `DB_HOST` | `127.0.0.1` | `your-db-server.com` | Remote database in production |
-| `MAIL_HOST` | `smtp.mailtrap.io` (test) | `smtp.gmail.com` (real) | Test emails locally, real emails in prod |
-
-### ⚠️ CRITICAL: Local Development Settings
-
-When developing locally, **use these settings** to avoid session/cookie issues:
-
-```env
-# For local development on http://localhost:8000
-SESSION_DOMAIN=localhost          # NOT .localhost!
-SESSION_SECURE=false              # HTTP not HTTPS
-SESSION_PATH=/
-APP_URL=http://localhost:8000
-```
-
-### ⚠️ CRITICAL: Production Settings
-
-When deploying to production, **use these settings** for security:
-
-```env
-# For production on https://login.alertaraqc.com
-SESSION_DOMAIN=.alertaraqc.com    # Include the dot!
-SESSION_SECURE=true               # HTTPS only
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
-APP_URL=https://login.alertaraqc.com
-APP_DEBUG=false
-```
-
-### How to Manage Multiple .env Files
-
-**Option 1: Use .env and .env.production (Recommended)**
-
-```bash
-# Development
-.env                    # Used by `php artisan` commands
-
-# Production
-.env.production         # Used only when deployed
-```
-
-**Option 2: Use git-ignored .env files**
-
-```bash
-# .gitignore
-.env
-.env.local
-.env.production
-```
-
-**Option 3: Use environment variables in hosting panel**
-
-Most hosting panels (cPanel, Plesk, etc.) allow you to set environment variables directly without .env files.
-
-### Deploying to Production
-
-**Step 1: Create production .env**
-```bash
-cp .env .env.production
-# Edit .env.production with production values
-```
-
-**Step 2: Upload to server (but NOT to Git)**
-```bash
-# Add to .gitignore
-echo ".env.production" >> .gitignore
-```
-
-**Step 3: Set on server during deployment**
-```bash
-# On server, create .env with production values
-# Or set environment variables in hosting control panel
-```
-
-**Step 4: Verify settings**
-```bash
-php artisan config:show | grep SESSION
-php artisan config:show | grep APP_DEBUG
-```
-
-### Environment Variables Explained
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `JWT_SECRET` | Secret key for signing JWTs - **KEEP SAFE!** | `your-super-secret-key-here` |
-| `MAIN_DOMAIN` | Main login domain | `https://alertaraqc.com` |
-| `CENTRALIZED_LOGIN_URL` | Centralized login server URL | `https://login.alertaraqc.com` |
-| `API_VALIDATE_ENDPOINT` | API endpoint to validate tokens | `https://login.alertaraqc.com/api/auth/validate` |
-| `SESSION_DOMAIN` | Allows sharing sessions across subdomains | `.alertaraqc.com` (dot prefix!) |
-| `SESSION_SECURE` | Only send session cookie over HTTPS | `true` (production), `false` (local dev) |
-| `SESSION_HTTP_ONLY` | Prevent JavaScript access to session | `true` |
-| `SESSION_SAME_SITE` | SameSite cookie attribute | `lax` (recommended) |
-
-### How to Set Up .env Files
-
-**Step 1:** Request credentials from admin
-```bash
-# Ask admin for:
-# - JWT_SECRET
-# - Database credentials (if using database)
-# - Confirmation of MAIN_DOMAIN
-```
-
-**Step 2:** Create `.env` file in project root
-```bash
-cp .env.example .env
-```
-
-**Step 3:** Update values
-```bash
-nano .env  # or use your favorite editor
-```
-
-**Step 4:** Generate Laravel application key (Laravel only)
-```bash
-php artisan key:generate
-```
-
-**Step 5:** For production, add to `.gitignore`
-```bash
-echo ".env" >> .gitignore
-```
-
-### ⚠️ Important: Never Commit .env
-
-**NEVER commit `.env` to Git!** It contains sensitive information:
-- JWT_SECRET
-- Database passwords
-- API keys
-
-**Always:**
-- ✅ Add `.env` to `.gitignore`
-- ✅ Use `.env.example` for reference
-- ✅ Share credentials securely via admin
-- ✅ Use environment-specific .env files (`.env.local`, `.env.production`)
+That's all you need! The token is passed automatically in the URL when user logs in.
 
 ---
 
@@ -866,11 +511,12 @@ console.log(userData.role);
 
 ## 🎯 Next Steps
 
-1. ✅ Request JWT_SECRET from admin
-2. ✅ Update .env with JWT_SECRET
-3. ✅ Use the API endpoint examples above (Pure PHP or Laravel)
-4. ✅ Test your dashboard login flow
-5. ✅ Deploy to production
+1. ✅ Copy the Pure PHP or Laravel code above to your dashboard
+2. ✅ Test it by logging in from https://login.alertaraqc.com
+3. ✅ Verify user data displays correctly
+4. ✅ Deploy to production
+
+That's it!
 
 ---
 
@@ -935,38 +581,31 @@ $dashboardFiles = [
 crime.alertaraqc.com instead of crime-analytics.alertaraqc.com?"
 ```
 
-#### 🔐 Need JWT_SECRET or Credentials?
-- **Contact:** Admin
-- **What you'll receive:**
-  - JWT_SECRET (for .env)
-  - Database credentials (for .env)
-  - Centralized login URL (MAIN_DOMAIN)
-
 ---
 
 **Last Updated:** 2026-02-15
-**Version:** 2.1.0 (Local/Production .env Configurations Added)
+**Version:** 3.0.0 (Simplified API Endpoint Approach)
 **Status:** ✅ Production Ready
 
 ---
 
 ## 📝 Changelog
 
+### Version 3.0.0 (2026-02-15) - Simplified!
+- 🎯 Removed all auth-include file references
+- 📝 Step-by-step examples for Pure PHP and Laravel
+- ⚙️ Simplified .env configuration (only essential values)
+- ❓ Updated FAQ to clarify dashboard vs centralized login setup
+- 🚀 Made documentation easy to understand (not confusing)
+
 ### Version 2.1.0 (2026-02-15)
 - 🌍 Added Local Development vs Production .env guide
 - 📋 Complete .env examples for local and production
 - ⚠️ Critical settings guide for security
-- 📊 Comparison table for local vs production settings
-- 🚀 Deployment checklist and procedures
 
 ### Version 2.0.0 (2026-02-15)
 - ✨ Added API Endpoint section (recommended approach)
 - 📚 Updated environment variables documentation
-- 🔐 Enhanced security configuration guide
-- 🎯 Added quick start examples for API endpoint
-- ✅ Added comparison table (Include File vs API Endpoint)
 
 ### Version 1.0.0 (2026-02-14)
-- Initial release
-- Include file-based authentication
-- Complete integration guide
+- Initial release with include file approach
