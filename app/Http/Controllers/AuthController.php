@@ -416,7 +416,14 @@ class AuthController extends Controller
         session()->invalidate();
         session()->regenerateToken();
 
-        return redirect('/');
+        // Clear all session/CSRF cookies across all subdomains
+        // This prevents 419 errors on next login
+        $response = redirect('/');
+        $response->cookie('XSRF-TOKEN', '', -1, '/', '.alertaraqc.com', true, true, false, 'lax');
+        $response->cookie('laravel_session', '', -1, '/', '.alertaraqc.com', true, true, false, 'lax');
+        $response->cookie('session', '', -1, '/', '.alertaraqc.com', true, true, false, 'lax');
+
+        return $response;
     }
 
     /**

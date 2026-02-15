@@ -107,8 +107,28 @@
             }
         }
 
-        // Disable button on form submission
+        // Clear old session/CSRF tokens on page load
         document.addEventListener('DOMContentLoaded', function() {
+            // Clear localStorage of old JWT and session data
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('admin_data');
+            localStorage.removeItem('otp_timer_start');
+            localStorage.removeItem('session');
+            sessionStorage.clear();
+
+            // Clear old session/CSRF cookies from all domains
+            // These expire dates remove cookies from browser
+            const clearCookie = (name) => {
+                document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.alertaraqc.com; secure; samesite=lax;';
+                document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=login.alertaraqc.com; secure; samesite=lax;';
+                document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            };
+
+            clearCookie('XSRF-TOKEN');
+            clearCookie('laravel_session');
+            clearCookie('session');
+            clearCookie('remember_me');
+
             const loginForm = document.getElementById('loginForm');
             const submitBtn = document.getElementById('submitBtn');
 
