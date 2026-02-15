@@ -111,6 +111,13 @@ if ($token) {
             $debugLog[] = 'Role: ' . ($user['role'] ?? 'N/A');
             $debugLog[] = 'Expires: ' . date('Y-m-d H:i:s', $user['exp'] ?? time());
 
+            // Check if token was issued before logout
+            $lastLogoutTime = cache()->get('user_logout_' . ($user['id'] ?? ''), null);
+            if ($lastLogoutTime && $user['iat'] < $lastLogoutTime) {
+                $debugLog[] = '✗ JWT token rejected - issued before logout';
+                $user = null;
+            }
+
         } else {
             $debugLog[] = '✗ JWT token validation FAILED!';
             $debugLog[] = 'Error: Token invalid or expired';
