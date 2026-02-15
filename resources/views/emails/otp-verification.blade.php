@@ -170,7 +170,7 @@
                 <h3>📋 Login Details</h3>
                 <p><strong>Email:</strong> {{ $user->email }}</p>
                 <p><strong>New Device IP:</strong> {{ $ipAddress }}</p>
-                <p><strong>Time:</strong> {{ now()->format('Y-m-d H:i:s') }}</p>
+                <p><strong>Time:</strong> {{ now('Asia/Manila')->format('Y-m-d H:i:s') }}</p>
             </div>
 
             <!-- Security Warning -->

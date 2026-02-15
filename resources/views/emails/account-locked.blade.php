@@ -180,7 +180,7 @@
                 <h3>📋 Login Attempt Details</h3>
                 <p><strong>Email:</strong> {{ $user->email }}</p>
                 <p><strong>IP Address:</strong> {{ $ipAddress }}</p>
-                <p><strong>Time:</strong> {{ now()->format('Y-m-d H:i:s') }}</p>
+                <p><strong>Time:</strong> {{ now('Asia/Manila')->format('Y-m-d H:i:s') }}</p>
             </div>
 
             <!-- Warning -->
