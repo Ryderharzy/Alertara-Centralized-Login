@@ -418,4 +418,115 @@ class AuthController extends Controller
 
         return redirect('/');
     }
+
+    /**
+     * API Endpoint to validate JWT token and return user data
+     *
+     * Usage:
+     * GET /api/auth/validate?token=YOUR_JWT_TOKEN
+     *
+     * Headers:
+     * Authorization: Bearer YOUR_JWT_TOKEN
+     *
+     * Returns:
+     * {
+     *   "authenticated": true,
+     *   "user": {
+     *     "id": 1,
+     *     "email": "admin@example.com",
+     *     "department": "law_enforcement_department",
+     *     "department_name": "Law Enforcement Department",
+     *     "role": "super_admin",
+     *     "exp": 1705123456
+     *   }
+     * }
+     */
+    public function validateAuth(Request $request)
+    {
+        // Department name mapping
+        $departmentNames = [
+            'law_enforcement_department' => 'Law Enforcement Department',
+            'traffic_and_transport_department' => 'Traffic & Transport Department',
+            'fire_and_rescue_department' => 'Fire & Rescue Department',
+            'emergency_response_department' => 'Emergency Response Department',
+            'community_policing_department' => 'Community Policing Department',
+            'crime_data_department' => 'Crime Data Analytics Department',
+            'public_safety_department' => 'Public Safety Department',
+            'health_and_safety_department' => 'Health & Safety Department',
+            'disaster_preparedness_department' => 'Disaster Preparedness Department',
+            'emergency_communication_department' => 'Emergency Communication Department',
+            'all_departments' => 'All Departments'
+        ];
+
+        // Get token from multiple sources
+        $token = $request->query('token')
+            ?? $request->bearerToken()
+            ?? $request->header('X-Access-Token')
+            ?? session('jwt_token');
+
+        if (!$token) {
+            return response()->json([
+                'authenticated' => false,
+                'message' => 'No token provided'
+            ], 401);
+        }
+
+        try {
+            // Validate JWT token
+            $authUser = \Tymon\JWTAuth\Facades\JWTAuth::setToken($token)->authenticate();
+
+            if (!$authUser) {
+                return response()->json([
+                    'authenticated' => false,
+                    'message' => 'Invalid token'
+                ], 401);
+            }
+
+            // Get JWT payload with custom claims
+            $payload = \Tymon\JWTAuth\Facades\JWTAuth::setToken($token)->getPayload();
+
+            $department = $payload->get('department') ?? '';
+            $departmentName = $departmentNames[$department] ?? ucfirst(str_replace('_', ' ', $department));
+
+            // Check token expiration
+            $exp = $payload->get('exp');
+            if ($exp && $exp < time()) {
+                return response()->json([
+                    'authenticated' => false,
+                    'message' => 'Token expired'
+                ], 401);
+            }
+
+            // Check if token was issued before logout
+            $lastLogoutTime = cache()->get('user_logout_' . $authUser->id, null);
+            if ($lastLogoutTime && ($payload->get('iat') ?? 0) < $lastLogoutTime) {
+                return response()->json([
+                    'authenticated' => false,
+                    'message' => 'Token revoked after logout'
+                ], 401);
+            }
+
+            return response()->json([
+                'authenticated' => true,
+                'user' => [
+                    'id' => $authUser->id,
+                    'email' => $payload->get('email') ?? $authUser->email,
+                    'department' => $department,
+                    'department_name' => $departmentName,
+                    'role' => $payload->get('role') ?? 'admin',
+                    'exp' => $exp
+                ]
+            ], 200)->header('Access-Control-Allow-Origin', '*');
+
+        } catch (\Exception $e) {
+            Log::error('JWT Validation Error: ' . $e->getMessage(), [
+                'token_preview' => substr($token, 0, 50) . '...'
+            ]);
+
+            return response()->json([
+                'authenticated' => false,
+                'message' => 'Token validation failed'
+            ], 401);
+        }
+    }
 }
