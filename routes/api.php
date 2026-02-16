@@ -19,5 +19,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Authentication API endpoints (no middleware required for JWT validation)
+// Authentication API endpoints
+Route::post('/logout', [AuthController::class, 'apiLogout']);
 Route::get('/auth/validate', [AuthController::class, 'validateAuth']);
