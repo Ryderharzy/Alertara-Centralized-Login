@@ -448,7 +448,7 @@ class AuthController extends Controller
      * Headers: Authorization: Bearer JWT_TOKEN
      *
      * Returns:
-     * { "success": true, "message": "Logged out successfully" }
+     * { "success": true, "message": "Logged out successfully", "clear_cookies": true }
      */
     public function apiLogout(Request $request)
     {
@@ -485,10 +485,21 @@ class AuthController extends Controller
                     'ip' => $request->ip()
                 ]);
 
-                return response()->json([
+                // Build response with cookie clearing instructions
+                $response = response()->json([
                     'success' => true,
-                    'message' => 'Logged out successfully'
+                    'message' => 'Logged out successfully',
+                    'clear_cookies' => true
                 ], 200);
+
+                // Clear session cookies from main domain
+                $sessionCookieName = config('session.cookie');
+                $response->cookie($sessionCookieName, '', -1, '/', '.alertaraqc.com', false, true);
+                $response->cookie($sessionCookieName, '', -1, '/', 'login.alertaraqc.com', false, true);
+                $response->cookie('XSRF-TOKEN', '', -1, '/', '.alertaraqc.com', false, true);
+                $response->cookie('XSRF-TOKEN', '', -1, '/', 'login.alertaraqc.com', false, true);
+
+                return $response;
 
             } catch (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
                 return response()->json([
