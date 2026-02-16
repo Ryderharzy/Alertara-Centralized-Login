@@ -492,12 +492,33 @@ class AuthController extends Controller
                     'clear_cookies' => true
                 ], 200);
 
-                // Clear session cookies from main domain
+                // Clear session cookies from ALL domains and paths
                 $sessionCookieName = config('session.cookie');
-                $response->cookie($sessionCookieName, '', -1, '/', '.alertaraqc.com', false, true);
-                $response->cookie($sessionCookieName, '', -1, '/', 'login.alertaraqc.com', false, true);
-                $response->cookie('XSRF-TOKEN', '', -1, '/', '.alertaraqc.com', false, true);
-                $response->cookie('XSRF-TOKEN', '', -1, '/', 'login.alertaraqc.com', false, true);
+                $cookiesToClear = [
+                    'laravel_session',
+                    $sessionCookieName,
+                    'XSRF-TOKEN',
+                    'jwt_token',
+                    'remember_me',
+                    'auth_token'
+                ];
+
+                $domainsToTarget = [
+                    '.alertaraqc.com',
+                    'login.alertaraqc.com',
+                    'localhost',
+                    '127.0.0.1'
+                ];
+
+                $pathsToTarget = ['/', ''];
+
+                foreach ($cookiesToClear as $cookieName) {
+                    foreach ($domainsToTarget as $domain) {
+                        foreach ($pathsToTarget as $path) {
+                            $response->cookie($cookieName, '', -1, $path ?: '/', $domain, false, true);
+                        }
+                    }
+                }
 
                 return $response;
 
