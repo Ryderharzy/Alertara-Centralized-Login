@@ -442,6 +442,76 @@ class AuthController extends Controller
     }
 
     /**
+     * API Logout endpoint for subdomains
+     *
+     * POST /api/logout
+     * Headers: Authorization: Bearer JWT_TOKEN
+     *
+     * Returns:
+     * { "success": true, "message": "Logged out successfully" }
+     */
+    public function apiLogout(Request $request)
+    {
+        try {
+            // Get token from Authorization header
+            $token = $request->bearerToken() ?? $request->input('token');
+
+            if (!$token) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No token provided'
+                ], 401);
+            }
+
+            try {
+                // Decode and validate JWT token
+                $authUser = \Tymon\JWTAuth\Facades\JWTAuth::setToken($token)->authenticate();
+
+                if (!$authUser) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid token'
+                    ], 401);
+                }
+
+                // Store logout time in cache (key: user_logout_ID, value: current timestamp)
+                // This will be checked by validateAuth endpoint to reject tokens issued before logout
+                cache()->put('user_logout_' . $authUser->id, time(), now()->addDays(7));
+
+                // Log the logout action
+                Log::info('User logged out', [
+                    'user_id' => $authUser->id,
+                    'email' => $authUser->email,
+                    'ip' => $request->ip()
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Logged out successfully'
+                ], 200);
+
+            } catch (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Token has expired'
+                ], 401);
+            } catch (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Token is invalid'
+                ], 401);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Logout error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during logout'
+            ], 500);
+        }
+    }
+
+    /**
      * API Endpoint to validate JWT token and return user data
      *
      * Usage:
