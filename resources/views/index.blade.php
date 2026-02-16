@@ -87,19 +87,6 @@
     @include('partials.sweetalert')
 
     <script>
-        // DEBUG: Log cookies to console
-        function debugCookies(label) {
-            console.log(`\n=== ${label} ===`);
-            const cookies = document.cookie.split(';').map(c => c.trim());
-            cookies.forEach(cookie => {
-                if (cookie) {
-                    const [name, value] = cookie.split('=');
-                    console.log(`${name}: ${value?.substring(0, 50)}...`);
-                }
-            });
-            console.log('Total cookies:', cookies.filter(c => c).length);
-        }
-
         // Cloudflare Turnstile callback
         function onCaptchaSuccess(token) {
             document.getElementById('cf-turnstile-response').value = token;
@@ -122,86 +109,40 @@
 
         // Clear old session/CSRF tokens on page load
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🔍 Starting cookie cleanup...');
-            debugCookies('BEFORE CLEANUP');
-
             // Clear ALL localStorage and sessionStorage
             localStorage.clear();
             sessionStorage.clear();
-            console.log('✓ Cleared localStorage and sessionStorage');
 
-            // Aggressive cookie clearing function
+            // Clear old session/CSRF cookies from all possible domains and paths
             const clearCookie = (name) => {
-                console.log(`Clearing cookie: ${name}`);
-
-                const clearStrategies = [
-                    // Standard expiry methods
-                    { domain: '.alertaraqc.com', path: '/', secure: false },
-                    { domain: 'login.alertaraqc.com', path: '/', secure: false },
-                    { domain: 'localhost', path: '/', secure: false },
-                    { domain: '127.0.0.1', path: '/', secure: false },
-                    { domain: null, path: '/', secure: false },
-                    { domain: '.alertaraqc.com', path: '', secure: false },
-                    { domain: 'login.alertaraqc.com', path: '', secure: false },
+                const cookiesToDelete = [
+                    // Production domains
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.alertaraqc.com;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=login.alertaraqc.com;',
+                    // Local domains
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=localhost;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=127.0.0.1;',
+                    // Current domain without domain specification
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; Secure; SameSite=Lax;',
                 ];
 
-                clearStrategies.forEach(strategy => {
-                    // Set to expire in past
-                    let cookieStr = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
-                    if (strategy.path) cookieStr += `path=${strategy.path};`;
-                    if (strategy.domain) cookieStr += `domain=${strategy.domain};`;
-                    cookieStr += 'SameSite=Lax;';
-
-                    document.cookie = cookieStr;
-
-                    // Also try with Secure flag
-                    document.cookie = cookieStr + 'Secure;';
+                cookiesToDelete.forEach(cookie => {
+                    document.cookie = cookie;
                 });
             };
 
             // Clear all known session/auth related cookies
-            const cookieNames = [
-                'laravel_session',
-                'XSRF-TOKEN',
-                'session',
-                'remember_me',
-                'jwt_token',
-                'auth_token',
-                'old_session'
-            ];
-
-            cookieNames.forEach(name => {
+            ['XSRF-TOKEN', 'laravel_session', 'session', 'remember_me', 'jwt_token', 'auth_token'].forEach(name => {
                 clearCookie(name);
             });
-
-            // Wait a moment then verify
-            setTimeout(() => {
-                debugCookies('AFTER CLEANUP');
-
-                // Check for remaining session cookies
-                const remainingCookies = document.cookie.split(';').map(c => c.trim());
-                const hasSessionCookies = remainingCookies.some(c =>
-                    c.startsWith('laravel_session') ||
-                    c.startsWith('XSRF-TOKEN') ||
-                    c.startsWith('session')
-                );
-
-                if (hasSessionCookies) {
-                    console.warn('⚠️ WARNING: Session cookies still present after cleanup!');
-                    console.warn('This may cause 419 errors on login');
-                } else {
-                    console.log('✓ All session cookies cleared successfully');
-                }
-            }, 100);
 
             const loginForm = document.getElementById('loginForm');
             const submitBtn = document.getElementById('submitBtn');
 
             if (loginForm) {
                 loginForm.addEventListener('submit', function(e) {
-                    console.log('📝 Submitting login form...');
-                    debugCookies('ON FORM SUBMIT');
-
                     // Disable the button to prevent double submission
                     submitBtn.disabled = true;
                     submitBtn.textContent = 'Signing In...';
