@@ -62,19 +62,25 @@ class AuthController extends Controller
         $user = CentralizedAdminUser::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password_hash)) {
-            // Increment attempt count on failed login
+            // Use Redis cache for attempt count tracking
+            $accountLocked = false;
             if ($user) {
-                $user->increment('attempt_count');
+                $cacheKey = 'login_attempts_' . $user->id;
+                $attemptCount = cache()->get($cacheKey, 0) + 1;
+
+                // Store attempt count in Redis for 1 hour
+                cache()->put($cacheKey, $attemptCount, now()->addHour());
 
                 // Lock account after 3 failed attempts
-                if ($user->attempt_count >= 3) {
+                if ($attemptCount >= 3) {
                     $unlockToken = Str::random(60);
-                    $user->update([
-                        'unlock_token' => $unlockToken,
-                        'unlock_token_expiry' => now('Asia/Manila')->addHour()
-                    ]);
+                    $unlockCacheKey = 'account_locked_' . $user->id;
 
-                    // Send unlock email
+                    // Store unlock token in Redis for 1 hour (unique per user)
+                    cache()->put($unlockCacheKey, $unlockToken, now()->addHour());
+                    Log::info('Account locked, unlock token stored in Redis for user: ' . $user->id);
+
+                    // Send unlock email with unlock link
                     try {
                         Mail::send('emails.account-locked', [
                             'user' => $user,
@@ -84,23 +90,42 @@ class AuthController extends Controller
                             $message->to($user->email)
                                 ->subject('Account Locked - Security Alert');
                         });
+                        Log::info('Account locked email sent to: ' . $user->email);
+                        $accountLocked = true;
                     } catch (\Exception $e) {
                         // Log email error but don't fail the request
                         Log::error('Failed to send account locked email: ' . $e->getMessage());
+                        $accountLocked = true;
                     }
                 }
             }
 
+            // Show different message if account is locked
+            if ($accountLocked) {
+                if ($request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+                    return response()->json([
+                        'message' => 'Your account has been locked due to multiple failed login attempts. We have sent an unlock link to your email address. Please check your inbox.'
+                    ], 403);
+                }
+                return redirect()->back()
+                    ->withErrors(['email' => 'Your account has been locked due to multiple failed login attempts. We have sent an unlock link to your email address. Please check your inbox.'])
+                    ->withInput($request->except('password'));
+            }
+
+            // Regular invalid credentials message
             if ($request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
-                return response()->json(['message' => 'Invalid credentials'], 401);
+                return response()->json(['message' => 'Invalid email or password'], 401);
             }
             return redirect()->back()
-                ->withErrors(['email' => 'Invalid credentials'])
+                ->withErrors(['email' => 'Invalid email or password'])
                 ->withInput($request->except('password'));
         }
 
-        // Check if account is locked
-        if ($user->attempt_count >= 3 && $user->unlock_token_expiry && now('Asia/Manila')->lt($user->unlock_token_expiry)) {
+        // Check if account is locked (Redis cache only)
+        $cacheKey = 'account_locked_' . $user->id;
+        $isLockedInCache = cache()->has($cacheKey);
+
+        if ($isLockedInCache) {
             if ($request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
                 return response()->json(['message' => 'Account is temporarily locked. Please check your email for unlock instructions.'], 403);
             }
@@ -109,11 +134,15 @@ class AuthController extends Controller
                 ->withInput($request->except('password'));
         }
 
-        // Reset attempt count on successful login
+        // Reset attempt count on successful login (Redis only)
+        $attemptCacheKey = 'login_attempts_' . $user->id;
+        $lockCacheKey = 'account_locked_' . $user->id;
+        cache()->forget($attemptCacheKey);
+        cache()->forget($lockCacheKey);
+        Log::info('Login attempts and lock cleared from Redis for user: ' . $user->id);
+
+        // Update only login metadata in database
         $user->update([
-            'attempt_count' => 0,
-            'unlock_token' => null,
-            'unlock_token_expiry' => null,
             'last_login' => now('Asia/Manila'),
             'last_activity' => now('Asia/Manila'),
             'ip_address' => $request->ip()
@@ -122,28 +151,13 @@ class AuthController extends Controller
         // Generate OTP for mandatory 2FA
         $otpCode = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        // Store OTP in database
+        // Store OTP in Redis (unique per user)
         try {
-            // Delete old OTPs for this user
-            DB::table('centralized_admin_otp')
-                ->where('admin_id', $user->id)
-                ->delete();
+            $otpCacheKey = 'otp_' . $user->id;
 
-            // Insert new OTP
-            $otpInserted = DB::table('centralized_admin_otp')->insert([
-                'admin_id' => $user->id,
-                'otp_code' => $otpCode,
-                'created_at' => now('Asia/Manila'),
-                'expires_at' => now('Asia/Manila')->addMinutes(5)
-            ]);
-
-            if (!$otpInserted) {
-                Log::error('Failed to insert OTP for user: ' . $user->id);
-                if ($request->expectsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
-                    return response()->json(['message' => 'Failed to generate OTP. Please try again.'], 500);
-                }
-                return redirect()->back()->withErrors(['email' => 'Failed to generate OTP. Please try again.']);
-            }
+            // Store OTP in Redis for 5 minutes
+            cache()->put($otpCacheKey, $otpCode, now()->addMinutes(5));
+            Log::info('OTP generated and stored in Redis for user: ' . $user->id);
 
             // Send OTP via email
             try {
@@ -199,29 +213,13 @@ class AuthController extends Controller
                 ], 404);
             }
 
-            // Clean up old OTPs
-            DB::table('centralized_admin_otp')
-                ->where('admin_id', $adminId)
-                ->delete();
-
             // Generate new OTP
             $otpCode = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-            // Store new OTP
-            $otpInserted = DB::table('centralized_admin_otp')->insert([
-                'admin_id' => $adminId,
-                'otp_code' => $otpCode,
-                'created_at' => now('Asia/Manila'),
-                'expires_at' => now('Asia/Manila')->addMinutes(5)
-            ]);
-
-            if (!$otpInserted) {
-                Log::error('Failed to insert new OTP for user: ' . $adminId);
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Failed to generate new OTP. Please try again.'
-                ], 500);
-            }
+            // Store new OTP in Redis (unique per user, replaces old OTP)
+            $otpCacheKey = 'otp_' . $adminId;
+            cache()->put($otpCacheKey, $otpCode, now()->addMinutes(5));
+            Log::info('New OTP generated and stored in Redis for user: ' . $adminId);
 
             // Send OTP via email
             try {
@@ -277,7 +275,7 @@ class AuthController extends Controller
         }
 
         $adminId = session('otp_admin_id');
-        
+
         if (!$adminId) {
             return response()->json([
                 'success' => false,
@@ -285,12 +283,11 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $otpRecord = DB::table('centralized_admin_otp')
-            ->where('admin_id', $adminId)
-            ->where('expires_at', '>', now('Asia/Manila'))
-            ->first();
+        // Get OTP from Redis cache (unique per user)
+        $otpCacheKey = 'otp_' . $adminId;
+        $storedOtp = cache()->get($otpCacheKey);
 
-        if (!$otpRecord || $request->otp !== $otpRecord->otp_code) {
+        if (!$storedOtp || $request->otp !== $storedOtp) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid or expired OTP'
@@ -310,10 +307,14 @@ class AuthController extends Controller
         // Generate JWT token using JWTAuth
         $token = \Tymon\JWTAuth\Facades\JWTAuth::fromUser($user);
 
-        // Clean up OTP
-        DB::table('centralized_admin_otp')
-            ->where('admin_id', $adminId)
-            ->delete();
+        // Clean up OTP from Redis immediately after use
+        cache()->forget($otpCacheKey);
+        Log::info('OTP verified and removed from cache for user: ' . $adminId);
+
+        // Reset login attempts counter after successful OTP verification
+        $attemptCacheKey = 'login_attempts_' . $adminId;
+        cache()->forget($attemptCacheKey);
+        Log::info('Login attempts reset to 0 for user: ' . $adminId);
 
         session()->forget('otp_admin_id');
 
@@ -392,19 +393,50 @@ class AuthController extends Controller
 
     public function unlockAccount($token)
     {
-        $user = CentralizedAdminUser::where('unlock_token', $token)
-            ->where('unlock_token_expiry', '>', now('Asia/Manila'))
-            ->first();
+        // Get email from request query parameter (if provided)
+        $email = request('email');
+        $user = null;
+
+        // If email provided, find user by email
+        if ($email) {
+            $user = CentralizedAdminUser::where('email', $email)->first();
+        } else {
+            // If no email, search through all users to find matching unlock token
+            // This is less efficient but works if email is not in URL
+            $allUsers = CentralizedAdminUser::all();
+            foreach ($allUsers as $u) {
+                $lockCacheKey = 'account_locked_' . $u->id;
+                $storedToken = cache()->get($lockCacheKey);
+                if ($storedToken && $storedToken === $token) {
+                    $user = $u;
+                    break;
+                }
+            }
+        }
 
         if (!$user) {
             return redirect('/')->withErrors(['email' => 'Invalid or expired unlock link.']);
         }
 
-        // Unlock the account
-        $user->update([
-            'attempt_count' => 0,
-            'unlock_token' => null,
-            'unlock_token_expiry' => null
+        // Verify unlock token from Redis cache
+        $lockCacheKey = 'account_locked_' . $user->id;
+        $storedToken = cache()->get($lockCacheKey);
+
+        if (!$storedToken || $storedToken !== $token) {
+            return redirect('/')->withErrors(['email' => 'Invalid or expired unlock link.']);
+        }
+
+        // Clear all Redis cache entries for this user
+        $attemptCacheKey = 'login_attempts_' . $user->id;
+        cache()->forget($attemptCacheKey);
+        cache()->forget($lockCacheKey);
+
+        // Reset attempt count to 0 in Redis
+        cache()->put($attemptCacheKey, 0, now()->addHour());
+
+        Log::info('Account unlocked', [
+            'user_id' => $user->id,
+            'email' => $user->email
         ]);
 
         return redirect('/')->with('success', 'Your account has been unlocked successfully. You can now login.');
