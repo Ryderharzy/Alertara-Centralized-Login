@@ -328,7 +328,7 @@ class AuthController extends Controller
             'crime_data_department' => 'crime-analytics.alertaraqc.com',
             'public_safety_department' => 'public-safety.alertaraqc.com',
             'health_and_safety_department' => 'health-safety.alertaraqc.com',
-            'disaster_preparedness_department' => 'disaster.alertaraqc.com',
+            'disaster_preparedness_department' => 'disaster-training.alertaraqc.com',
             'emergency_communication_department' => 'emergency-comm.alertaraqc.com'
         ];
 
@@ -359,7 +359,7 @@ class AuthController extends Controller
                 'crime_data_department' => 'dashboard',
                 'public_safety_department' => 'public-safety-dashboard.php',
                 'health_and_safety_department' => 'health-dashboard.php',
-                'disaster_preparedness_department' => 'disaster-dashboard.php',
+                'disaster_preparedness_department' => 'dashboard',
                 'emergency_communication_department' => 'comm-dashboard.php'
             ];
 
