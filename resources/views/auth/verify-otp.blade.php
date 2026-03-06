@@ -100,7 +100,7 @@
                     <!-- Timer -->
                     <div class="text-center">
                         <p class="text-sm text-gray-600">
-                            Code expires in: <span id="timer" class="font-bold text-alertara-600">5:00</span>
+                            Code expires in: <span id="timer" class="font-bold text-alertara-600">1:00</span>
                         </p>
                         <p id="expiredMessage" class="text-sm text-red-600 hidden mt-2">OTP has expired. Please request a new one.</p>
                     </div>
@@ -131,7 +131,7 @@
     @include('partials.sweetalert')
 
     <script>
-        const OTP_TIMEOUT = 300; // 5 minutes in seconds
+        const OTP_TIMEOUT = 60; // 1 minute in seconds
         const RESEND_COOLDOWN = 30; // 30 seconds
         const OTP_INPUTS = document.querySelectorAll('.otp-input');
         const OTP_CODE_INPUT = document.getElementById('otp_code');
@@ -415,7 +415,7 @@
                     Swal.fire({
                         icon: 'success',
                         title: 'Success',
-                        text: 'New OTP code sent successfully! Timer reset to 5 minutes.',
+                        text: 'New OTP code sent successfully! Timer reset to 1 minute.',
                         confirmButtonColor: '#16a34a',
                         confirmButtonText: 'OK'
                     });

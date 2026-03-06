@@ -40,7 +40,7 @@
         }
         .code-box {
             background-color: #f9f9f9;
-            border: 2px solid #ddd;
+            border: 2px solid #999;
             border-radius: 4px;
             padding: 20px;
             text-align: center;
@@ -82,7 +82,7 @@
                 <p class="code">{{ $otpCode }}</p>
             </div>
 
-            <p>Enter this code on the verification page. This code will expire in 10 minutes.</p>
+            <p>Enter this code on the verification page. This code will expire in 1 minute.</p>
 
             <p style="font-size: 12px; color: #999; margin-top: 24px;">If you didn't attempt this login, please ignore this email. Your account will remain secure.</p>
         </div>
