@@ -107,25 +107,22 @@
             }
         }
 
-        // Clear old session/CSRF tokens on page load
+        // Clear old session/CSRF tokens on page load (but NOT current session)
         document.addEventListener('DOMContentLoaded', function() {
             // Clear ALL localStorage and sessionStorage
             localStorage.clear();
             sessionStorage.clear();
 
-            // Clear old session/CSRF cookies from all possible domains and paths
+            // Clear old tokens from OTHER domains (do NOT clear current laravel_session)
             const clearCookie = (name) => {
                 const cookiesToDelete = [
-                    // Production domains
+                    // Production domains - clear from other subdomains
                     name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.alertaraqc.com;',
-                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=login.alertaraqc.com;',
-                    // Local domains
-                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=localhost;',
-                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=127.0.0.1;',
-                    // Current domain without domain specification
-                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;',
-                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax;',
-                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; Secure; SameSite=Lax;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=law-enforcement.alertaraqc.com;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=traffic.alertaraqc.com;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=fire.alertaraqc.com;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=crime-analytics.alertaraqc.com;',
+                    name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=super-admin.alertaraqc.com;',
                 ];
 
                 cookiesToDelete.forEach(cookie => {
@@ -133,8 +130,8 @@
                 });
             };
 
-            // Clear all known session/auth related cookies
-            ['XSRF-TOKEN', 'laravel_session', 'session', 'remember_me', 'jwt_token', 'auth_token'].forEach(name => {
+            // Clear jwt_token and auth_token from other domains, but NOT laravel_session
+            ['jwt_token', 'auth_token'].forEach(name => {
                 clearCookie(name);
             });
 
