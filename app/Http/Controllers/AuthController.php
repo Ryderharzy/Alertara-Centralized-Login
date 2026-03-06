@@ -155,8 +155,8 @@ class AuthController extends Controller
         try {
             $otpCacheKey = 'otp_' . $user->id;
 
-            // Store OTP in Redis for 5 minutes
-            cache()->put($otpCacheKey, $otpCode, now()->addMinutes(5));
+            // Store OTP in Redis for 1 minute
+            cache()->put($otpCacheKey, $otpCode, now()->addSeconds(60));
             Log::info('OTP generated and stored in Redis for user: ' . $user->id);
 
             // Send OTP via email
@@ -218,7 +218,7 @@ class AuthController extends Controller
 
             // Store new OTP in Redis (unique per user, replaces old OTP)
             $otpCacheKey = 'otp_' . $adminId;
-            cache()->put($otpCacheKey, $otpCode, now()->addMinutes(5));
+            cache()->put($otpCacheKey, $otpCode, now()->addSeconds(60));
             Log::info('New OTP generated and stored in Redis for user: ' . $adminId);
 
             // Send OTP via email
